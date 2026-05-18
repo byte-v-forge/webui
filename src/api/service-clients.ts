@@ -18,14 +18,14 @@ export const serviceEndpoints: ServiceEndpoint[] = [
   {
     key: "gptRegister",
     name: "GPT 注册",
-    publicContract: "contracts/gptregister/v1",
+    publicContract: "internal-contracts/gptregister/v1",
     transport: "grpc-web",
     baseUrlEnv: "VITE_GPT_REGISTER_API_BASE_URL",
   },
   {
     key: "outlookRegister",
     name: "Outlook 注册",
-    publicContract: "contracts/outlookregister/v1",
+    publicContract: "internal-contracts/outlookregister/v1",
     transport: "grpc-web",
     baseUrlEnv: "VITE_OUTLOOK_REGISTER_API_BASE_URL",
   },
@@ -46,14 +46,14 @@ export const serviceEndpoints: ServiceEndpoint[] = [
   {
     key: "accountManager",
     name: "账号管理",
-    publicContract: "contracts/account/v1",
+    publicContract: "internal-contracts/account/v1",
     transport: "grpc-web",
     baseUrlEnv: "VITE_ACCOUNT_MANAGER_API_BASE_URL",
   },
   {
     key: "browserAutomation",
     name: "浏览器自动化",
-    publicContract: "contracts/browserautomation/v1",
+    publicContract: "internal-contracts/browserautomation/v1",
     transport: "grpc-web",
     baseUrlEnv: "VITE_BROWSER_AUTOMATION_API_BASE_URL",
   },
