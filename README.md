@@ -6,7 +6,7 @@
 
 - 本仓只承载前端 shell 与业务页面组合，不沉淀业务核心逻辑。
 - 前端通过公开契约访问业务服务，优先使用 `contracts` 仓中的 proto 契约。
-- 不直接 import `gpt-register`、`outlook-register`、`sms`、`mailbox`、`account-manager`、`browser-automation` 等业务仓源码。
+- 不直接 import `gpt-register`、`outlook-register`、`sms`、`mailbox`、`gpt-account-manager`、`outlook-account-manager`、`browser-automation` 等业务仓源码。
 - 通用 UI 组件后续沉淀到独立 `uikit` 仓，业务页面只组合基础组件。
 
 ## 技术栈

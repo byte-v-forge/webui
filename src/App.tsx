@@ -55,7 +55,8 @@ type ModuleKey =
   | "outlook-register"
   | "sms"
   | "mailbox"
-  | "account-manager"
+  | "gpt-account-manager"
+  | "outlook-account-manager"
   | "browser-automation"
 
 type HealthState = "healthy" | "degraded" | "idle"
@@ -134,12 +135,22 @@ const modules: ModuleStatus[] = [
     icon: Database,
   },
   {
-    key: "account-manager",
-    name: "账号管理",
-    description: "账号库存、状态流转、分配与回收。",
-    owner: "account-manager",
+    key: "gpt-account-manager",
+    name: "GPT 账号",
+    description: "GPT 账号库存、凭据引用、状态流转与回收。",
+    owner: "gpt-account-manager",
     health: "healthy",
-    activeTasks: 3,
+    activeTasks: 2,
+    backlog: 0,
+    icon: ShieldCheck,
+  },
+  {
+    key: "outlook-account-manager",
+    name: "Outlook 账号",
+    description: "Outlook 账号库存、凭据引用与生命周期。",
+    owner: "outlook-account-manager",
+    health: "healthy",
+    activeTasks: 1,
     backlog: 0,
     icon: ShieldCheck,
   },
@@ -190,11 +201,19 @@ const workItems: WorkItem[] = [
   },
   {
     id: "acct-20260518-011",
-    module: "account-manager",
-    account: "inventory/ready",
+    module: "gpt-account-manager",
+    account: "gpt/ready",
     state: "可分配",
     channel: "grpc",
     updatedAt: "10:24",
+  },
+  {
+    id: "acct-20260518-012",
+    module: "outlook-account-manager",
+    account: "outlook/ready",
+    state: "可分配",
+    channel: "grpc",
+    updatedAt: "10:22",
   },
 ]
 
@@ -335,8 +354,8 @@ function Dashboard() {
                 />
                 <Metric
                   label="服务边界"
-                  value="7"
-                  detail="dashboard + 6 个业务服务"
+                  value="8"
+                  detail="dashboard + 7 个业务服务"
                 />
               </div>
 
@@ -469,7 +488,10 @@ function Dashboard() {
                       label="服务调用"
                       value="gRPC-Web / HTTP gateway"
                     />
-                    <BoundaryLine label="公共契约" value="contracts proto" />
+                    <BoundaryLine
+                      label="契约来源"
+                      value="contracts / internal-contracts"
+                    />
                     <BoundaryLine label="业务源码" value="禁止直接依赖" />
                   </div>
                 </section>
