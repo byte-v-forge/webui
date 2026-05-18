@@ -3,21 +3,22 @@ import type { ReactNode } from "react"
 import {
   Activity,
   Boxes,
-  BrainCircuit,
   CircleDot,
-  Database,
-  Mail,
-  Monitor,
+  ListTree,
   Moon,
-  Phone,
   RefreshCw,
   Search,
-  ShieldCheck,
   Sun,
 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query"
 
+import {
+  type CapabilityKind,
+  type ServiceDescriptor,
+  type ServiceHealthStatus,
+  listServices,
+} from "@/api/service-catalog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -45,177 +46,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { serviceEndpoints } from "@/api/service-clients"
 import { useTheme } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 
-type ModuleKey =
-  | "overview"
-  | "gpt-register"
-  | "outlook-register"
-  | "sms"
-  | "mailbox"
-  | "gpt-account-manager"
-  | "outlook-account-manager"
-  | "browser-automation"
-
-type HealthState = "healthy" | "degraded" | "idle"
-
-type ModuleStatus = {
-  key: ModuleKey
-  name: string
-  description: string
-  owner: string
-  health: HealthState
-  activeTasks: number
-  backlog: number
-  icon: LucideIcon
-}
-
-type WorkItem = {
-  id: string
-  module: Exclude<ModuleKey, "overview">
-  account: string
-  state: string
-  channel: string
-  updatedAt: string
+type CatalogService = ServiceDescriptor & {
+  activeCount: number
+  backlogCount: number
 }
 
 const queryClient = new QueryClient()
-
-const modules: ModuleStatus[] = [
-  {
-    key: "overview",
-    name: "总览",
-    description: "跨业务入口、导航与运行态聚合。",
-    owner: "dashboard",
-    health: "healthy",
-    activeTasks: 36,
-    backlog: 8,
-    icon: Activity,
-  },
-  {
-    key: "gpt-register",
-    name: "GPT 注册",
-    description: "GPT 账号注册流程、任务状态与人工介入入口。",
-    owner: "gpt-register",
-    health: "degraded",
-    activeTasks: 14,
-    backlog: 5,
-    icon: BrainCircuit,
-  },
-  {
-    key: "outlook-register",
-    name: "Outlook 注册",
-    description: "邮箱注册、会话恢复与风控状态追踪。",
-    owner: "outlook-register",
-    health: "healthy",
-    activeTasks: 9,
-    backlog: 1,
-    icon: Mail,
-  },
-  {
-    key: "sms",
-    name: "SMS",
-    description: "接码平台能力池、租用状态与验证码接收。",
-    owner: "sms",
-    health: "healthy",
-    activeTasks: 6,
-    backlog: 0,
-    icon: Phone,
-  },
-  {
-    key: "mailbox",
-    name: "Mailbox",
-    description: "邮箱账号、邮件检索、验证码读取与状态投影。",
-    owner: "mailbox",
-    health: "idle",
-    activeTasks: 2,
-    backlog: 2,
-    icon: Database,
-  },
-  {
-    key: "gpt-account-manager",
-    name: "GPT 账号",
-    description: "GPT 账号库存、凭据引用、状态流转与回收。",
-    owner: "gpt-account-manager",
-    health: "healthy",
-    activeTasks: 2,
-    backlog: 0,
-    icon: ShieldCheck,
-  },
-  {
-    key: "outlook-account-manager",
-    name: "Outlook 账号",
-    description: "Outlook 账号库存、凭据引用与生命周期。",
-    owner: "outlook-account-manager",
-    health: "healthy",
-    activeTasks: 1,
-    backlog: 0,
-    icon: ShieldCheck,
-  },
-  {
-    key: "browser-automation",
-    name: "浏览器自动化",
-    description: "浏览器 profile、任务执行与自动化会话边界。",
-    owner: "browser-automation",
-    health: "healthy",
-    activeTasks: 2,
-    backlog: 0,
-    icon: Monitor,
-  },
-]
-
-const workItems: WorkItem[] = [
-  {
-    id: "reg-20260518-001",
-    module: "gpt-register",
-    account: "gpt/pending",
-    state: "等待验证码",
-    channel: "sms:5sim",
-    updatedAt: "10:42",
-  },
-  {
-    id: "reg-20260518-002",
-    module: "outlook-register",
-    account: "outlook/provisioning",
-    state: "浏览器执行中",
-    channel: "browser:chromium",
-    updatedAt: "10:39",
-  },
-  {
-    id: "sms-20260518-041",
-    module: "sms",
-    account: "rental/active",
-    state: "号码已租用",
-    channel: "smsbower",
-    updatedAt: "10:37",
-  },
-  {
-    id: "mail-20260518-006",
-    module: "mailbox",
-    account: "mailbox/check",
-    state: "邮件检索",
-    channel: "imap",
-    updatedAt: "10:31",
-  },
-  {
-    id: "acct-20260518-011",
-    module: "gpt-account-manager",
-    account: "gpt/ready",
-    state: "可分配",
-    channel: "grpc",
-    updatedAt: "10:24",
-  },
-  {
-    id: "acct-20260518-012",
-    module: "outlook-account-manager",
-    account: "outlook/ready",
-    state: "可分配",
-    channel: "grpc",
-    updatedAt: "10:22",
-  },
-]
+const overviewKey = "overview"
 
 function App() {
   return (
@@ -228,32 +68,75 @@ function App() {
 }
 
 function Dashboard() {
-  const [activeModule, setActiveModule] = useState<ModuleKey>("overview")
+  const [activeServiceId, setActiveServiceId] = useState(overviewKey)
   const [environment, setEnvironment] = useState("local")
   const [query, setQuery] = useState("")
+  const [kindFilter, setKindFilter] = useState<"all" | CapabilityKind>("all")
 
-  const visibleItems = useMemo(() => {
-    return workItems.filter((item) => {
-      const moduleMatched =
-        activeModule === "overview" || item.module === activeModule
-      const keyword = query.trim().toLowerCase()
+  const servicesQuery = useQuery({
+    queryKey: ["service-catalog", environment],
+    queryFn: listServices,
+  })
 
-      if (!keyword) {
-        return moduleMatched
+  const services = useMemo(() => {
+    return (servicesQuery.data ?? []).map(toCatalogService)
+  }, [servicesQuery.data])
+
+  const selectedService = services.find(
+    (service) => service.serviceId === activeServiceId
+  )
+
+  const capabilityRows = useMemo(() => {
+    return services.flatMap((service) =>
+      service.capabilities.map((capability) => ({
+        ...capability,
+        serviceName: service.displayName,
+        serviceHealth: service.health,
+      }))
+    )
+  }, [services])
+
+  const visibleCapabilities = useMemo(() => {
+    const keyword = query.trim().toLowerCase()
+
+    return capabilityRows.filter((capability) => {
+      const serviceMatched =
+        activeServiceId === overviewKey ||
+        capability.ownerServiceId === activeServiceId
+      const kindMatched = kindFilter === "all" || capability.kind === kindFilter
+
+      if (!serviceMatched || !kindMatched) {
+        return false
       }
 
-      return (
-        moduleMatched &&
-        [item.id, item.account, item.state, item.channel]
-          .join(" ")
-          .toLowerCase()
-          .includes(keyword)
-      )
-    })
-  }, [activeModule, query])
+      if (!keyword) {
+        return true
+      }
 
-  const selectedModule =
-    modules.find((module) => module.key === activeModule) ?? modules[0]
+      return [
+        capability.capabilityId,
+        capability.displayName,
+        capability.description,
+        capability.serviceName,
+        capability.invocationRef,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword)
+    })
+  }, [activeServiceId, capabilityRows, kindFilter, query])
+
+  const totalActive = services.reduce(
+    (sum, service) => sum + service.activeCount,
+    0
+  )
+  const totalBacklog = services.reduce(
+    (sum, service) => sum + service.backlogCount,
+    0
+  )
+  const pageTitle = selectedService?.displayName ?? "总览"
+  const pageDescription =
+    selectedService?.description ?? "通过服务目录发现业务服务和能力。"
 
   return (
     <div className="min-h-svh bg-background text-foreground">
@@ -269,42 +152,35 @@ function Dashboard() {
                   Register Console
                 </div>
                 <div className="truncate text-xs text-muted-foreground">
-                  byte-v-forge
+                  service catalog
                 </div>
               </div>
             </div>
 
             <ScrollArea className="flex-1 px-2 pb-4">
               <nav className="space-y-1">
-                {modules.map((module) => {
-                  const Icon = module.icon
-                  const active = module.key === activeModule
-
-                  return (
-                    <button
-                      key={module.key}
-                      className={cn(
-                        "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors",
-                        active
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                          : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
-                      )}
-                      type="button"
-                      onClick={() => setActiveModule(module.key)}
-                    >
-                      <Icon className="size-4" aria-hidden="true" />
-                      <span className="min-w-0 flex-1 truncate">
-                        {module.name}
-                      </span>
-                      <HealthDot state={module.health} />
-                    </button>
-                  )
-                })}
+                <ServiceNavButton
+                  active={activeServiceId === overviewKey}
+                  health="serving"
+                  icon={Activity}
+                  label="总览"
+                  onClick={() => setActiveServiceId(overviewKey)}
+                />
+                {services.map((service) => (
+                  <ServiceNavButton
+                    key={service.serviceId}
+                    active={service.serviceId === activeServiceId}
+                    health={service.health}
+                    icon={ListTree}
+                    label={service.displayName}
+                    onClick={() => setActiveServiceId(service.serviceId)}
+                  />
+                ))}
               </nav>
             </ScrollArea>
 
             <div className="border-t p-4 text-xs text-muted-foreground">
-              前端只通过公开服务边界访问业务能力，不直接 import 业务仓源码。
+              前端只消费服务目录，不硬编码业务服务动作。
             </div>
           </div>
         </aside>
@@ -312,9 +188,9 @@ function Dashboard() {
         <main className="min-w-0">
           <header className="flex min-h-16 flex-col gap-3 border-b px-4 py-3 md:flex-row md:items-center md:justify-between">
             <div className="min-w-0">
-              <div className="text-sm font-semibold">{selectedModule.name}</div>
+              <div className="text-sm font-semibold">{pageTitle}</div>
               <div className="truncate text-xs text-muted-foreground">
-                {selectedModule.description}
+                {pageDescription}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -328,7 +204,10 @@ function Dashboard() {
                   <SelectItem value="prod">Production</SelectItem>
                 </SelectContent>
               </Select>
-              <IconButton label="刷新状态">
+              <IconButton
+                label="刷新目录"
+                onClick={() => void servicesQuery.refetch()}
+              >
                 <RefreshCw className="size-4" aria-hidden="true" />
               </IconButton>
               <ThemeToggle />
@@ -339,64 +218,65 @@ function Dashboard() {
             <section className="min-w-0 px-4 py-4 lg:px-6">
               <div className="grid gap-3 md:grid-cols-3">
                 <Metric
-                  label="运行任务"
-                  value={String(
-                    modules.reduce((sum, module) => sum + module.activeTasks, 0)
-                  )}
-                  detail="跨业务当前活跃"
+                  label="发现服务"
+                  value={String(services.length)}
+                  detail="来自 servicecatalog"
                 />
                 <Metric
-                  label="待处理"
-                  value={String(
-                    modules.reduce((sum, module) => sum + module.backlog, 0)
-                  )}
-                  detail="需要人工或重试"
+                  label="发现能力"
+                  value={String(capabilityRows.length)}
+                  detail="按 descriptor 渲染"
                 />
                 <Metric
-                  label="服务边界"
-                  value="8"
-                  detail="dashboard + 7 个业务服务"
+                  label="运行信号"
+                  value={String(totalActive + totalBacklog)}
+                  detail="目录投影状态"
                 />
               </div>
 
+              {servicesQuery.isError ? (
+                <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+                  服务目录读取失败，当前无法发现业务能力。
+                </div>
+              ) : null}
+
               <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {modules.slice(1).map((module) => {
-                  const Icon = module.icon
-                  const active = activeModule === module.key
+                {services.map((service) => {
+                  const active = activeServiceId === service.serviceId
 
                   return (
                     <button
-                      key={module.key}
+                      key={service.serviceId}
                       className={cn(
                         "group rounded-lg border bg-card p-4 text-left transition-colors hover:bg-accent/60",
                         active && "border-foreground"
                       )}
                       type="button"
-                      onClick={() => setActiveModule(module.key)}
+                      onClick={() => setActiveServiceId(service.serviceId)}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
                           <div className="flex size-9 items-center justify-center rounded-md bg-muted">
-                            <Icon className="size-4" aria-hidden="true" />
+                            <ListTree className="size-4" aria-hidden="true" />
                           </div>
                           <div className="min-w-0">
                             <div className="truncate text-sm font-medium">
-                              {module.name}
+                              {service.displayName}
                             </div>
                             <div className="truncate text-xs text-muted-foreground">
-                              {module.owner}
+                              {service.owner}
                             </div>
                           </div>
                         </div>
-                        <HealthBadge state={module.health} />
+                        <HealthBadge state={service.health} />
                       </div>
                       <p className="mt-3 min-h-10 text-xs leading-5 text-muted-foreground">
-                        {module.description}
+                        {service.description}
                       </p>
                       <div className="mt-3 flex items-center gap-4 text-xs">
-                        <span>{module.activeTasks} active</span>
+                        <span>{service.capabilities.length} capability</span>
                         <span className="text-muted-foreground">
-                          {module.backlog} backlog
+                          {service.contracts.length} contract
                         </span>
                       </div>
                     </button>
@@ -407,12 +287,12 @@ function Dashboard() {
               <div className="mt-6 rounded-lg border bg-card">
                 <div className="flex flex-col gap-3 border-b p-4 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <div className="text-sm font-medium">任务流</div>
+                    <div className="text-sm font-medium">能力目录</div>
                     <div className="text-xs text-muted-foreground">
-                      按业务服务边界聚合，不承载业务核心逻辑。
+                      所有入口由目录服务返回，前端按 descriptor 渲染。
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <div className="relative">
                       <Search
                         className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -420,23 +300,23 @@ function Dashboard() {
                       />
                       <Input
                         className="h-8 w-[220px] pl-7"
-                        placeholder="搜索任务"
+                        placeholder="搜索能力"
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
                       />
                     </div>
                     <Tabs
-                      value={activeModule}
+                      value={kindFilter}
                       onValueChange={(value) =>
-                        setActiveModule(value as ModuleKey)
+                        setKindFilter(value as "all" | CapabilityKind)
                       }
                     >
                       <TabsList className="h-8">
-                        <TabsTrigger value="overview">全部</TabsTrigger>
-                        <TabsTrigger value="gpt-register">GPT</TabsTrigger>
-                        <TabsTrigger value="outlook-register">
-                          Outlook
-                        </TabsTrigger>
+                        <TabsTrigger value="all">全部</TabsTrigger>
+                        <TabsTrigger value="page">页面</TabsTrigger>
+                        <TabsTrigger value="action">动作</TabsTrigger>
+                        <TabsTrigger value="query">查询</TabsTrigger>
+                        <TabsTrigger value="workflow">流程</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </div>
@@ -445,28 +325,35 @@ function Dashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>任务</TableHead>
-                      <TableHead>业务</TableHead>
-                      <TableHead>状态</TableHead>
-                      <TableHead>通道</TableHead>
-                      <TableHead className="text-right">更新时间</TableHead>
+                      <TableHead>能力</TableHead>
+                      <TableHead>服务</TableHead>
+                      <TableHead>类型</TableHead>
+                      <TableHead>入口引用</TableHead>
+                      <TableHead className="text-right">健康</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {visibleItems.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-mono text-xs">
-                          {item.id}
-                        </TableCell>
-                        <TableCell>{moduleName(item.module)}</TableCell>
+                    {visibleCapabilities.map((capability) => (
+                      <TableRow key={capability.capabilityId}>
                         <TableCell>
-                          <Badge variant="outline">{item.state}</Badge>
+                          <div className="font-medium">
+                            {capability.displayName}
+                          </div>
+                          <div className="max-w-[360px] truncate text-xs text-muted-foreground">
+                            {capability.description}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {item.channel}
+                        <TableCell>{capability.serviceName}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {capabilityKindLabel(capability.kind)}
+                          </Badge>
                         </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {item.updatedAt}
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {capability.invocationRef}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <HealthBadge state={capability.serviceHealth} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -478,42 +365,31 @@ function Dashboard() {
             <aside className="border-t px-4 py-4 xl:border-t-0 xl:border-l">
               <div className="space-y-5">
                 <section>
-                  <div className="mb-3 text-sm font-medium">依赖边界</div>
+                  <div className="mb-3 text-sm font-medium">发现边界</div>
                   <div className="space-y-3 text-sm">
-                    <BoundaryLine
-                      label="UI 基础"
-                      value="shadcn/ui + Tailwind"
-                    />
-                    <BoundaryLine
-                      label="服务调用"
-                      value="gRPC-Web / HTTP gateway"
-                    />
-                    <BoundaryLine
-                      label="契约来源"
-                      value="contracts / internal-contracts"
-                    />
-                    <BoundaryLine label="业务源码" value="禁止直接依赖" />
+                    <BoundaryLine label="服务目录" value="contracts/servicecatalog" />
+                    <BoundaryLine label="服务地址" value="Kubernetes DNS" />
+                    <BoundaryLine label="健康语义" value="gRPC Health" />
+                    <BoundaryLine label="调试发现" value="gRPC Reflection" />
                   </div>
                 </section>
 
                 <Separator />
 
                 <section>
-                  <div className="mb-3 text-sm font-medium">当前模块</div>
+                  <div className="mb-3 text-sm font-medium">当前服务</div>
                   <div className="rounded-lg border bg-card p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <div className="text-sm font-medium">
-                          {selectedModule.name}
-                        </div>
+                        <div className="text-sm font-medium">{pageTitle}</div>
                         <div className="text-xs text-muted-foreground">
-                          owner: {selectedModule.owner}
+                          owner: {selectedService?.owner ?? "platform"}
                         </div>
                       </div>
-                      <HealthBadge state={selectedModule.health} />
+                      <HealthBadge state={selectedService?.health ?? "serving"} />
                     </div>
                     <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                      {selectedModule.description}
+                      {pageDescription}
                     </p>
                   </div>
                 </section>
@@ -521,13 +397,15 @@ function Dashboard() {
                 <Separator />
 
                 <section>
-                  <div className="mb-3 text-sm font-medium">接入状态</div>
+                  <div className="mb-3 text-sm font-medium">契约引用</div>
                   <div className="space-y-2 text-xs">
-                    {serviceEndpoints.slice(0, 4).map((endpoint) => (
+                    {(selectedService?.contracts ?? [
+                      { contractRef: "contracts/servicecatalog/v1" },
+                    ]).map((contract) => (
                       <StatusLine
-                        key={endpoint.key}
-                        label={endpoint.name}
-                        ok={endpoint.transport === "grpc-web"}
+                        key={contract.contractRef}
+                        label={contract.contractRef}
+                        ok
                       />
                     ))}
                   </div>
@@ -538,6 +416,47 @@ function Dashboard() {
         </main>
       </div>
     </div>
+  )
+}
+
+function toCatalogService(service: ServiceDescriptor): CatalogService {
+  const degraded = service.health === "degraded" || service.health === "not_serving"
+
+  return {
+    ...service,
+    activeCount: service.capabilities.length,
+    backlogCount: degraded ? 1 : 0,
+  }
+}
+
+function ServiceNavButton({
+  active,
+  health,
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  active: boolean
+  health: ServiceHealthStatus
+  icon: LucideIcon
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      className={cn(
+        "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors",
+        active
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
+      )}
+      type="button"
+      onClick={onClick}
+    >
+      <Icon className="size-4" aria-hidden="true" />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <HealthDot state={health} />
+    </button>
   )
 }
 
@@ -570,8 +489,8 @@ function BoundaryLine({ label, value }: { label: string; value: string }) {
 
 function StatusLine({ label, ok = false }: { label: string; ok?: boolean }) {
   return (
-    <div className="flex items-center justify-between rounded-md border px-3 py-2">
-      <span>{label}</span>
+    <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+      <span className="min-w-0 truncate">{label}</span>
       <Badge variant={ok ? "default" : "secondary"}>
         {ok ? "ready" : "pending"}
       </Badge>
@@ -579,17 +498,22 @@ function StatusLine({ label, ok = false }: { label: string; ok?: boolean }) {
   )
 }
 
-function HealthBadge({ state }: { state: HealthState }) {
+function HealthBadge({ state }: { state: ServiceHealthStatus }) {
   const label = {
-    healthy: "healthy",
+    unknown: "unknown",
+    serving: "serving",
     degraded: "degraded",
-    idle: "idle",
+    not_serving: "not serving",
   }[state]
 
   return (
     <Badge
-      variant={state === "degraded" ? "destructive" : "secondary"}
-      className={cn(state === "healthy" && "bg-emerald-600 text-white")}
+      variant={
+        state === "degraded" || state === "not_serving"
+          ? "destructive"
+          : "secondary"
+      }
+      className={cn(state === "serving" && "bg-emerald-600 text-white")}
     >
       <HealthDot state={state} />
       {label}
@@ -597,18 +521,28 @@ function HealthBadge({ state }: { state: HealthState }) {
   )
 }
 
-function HealthDot({ state }: { state: HealthState }) {
+function HealthDot({ state }: { state: ServiceHealthStatus }) {
   return (
     <CircleDot
       className={cn(
         "size-3",
-        state === "healthy" && "text-emerald-500",
-        state === "degraded" && "text-destructive",
-        state === "idle" && "text-muted-foreground"
+        state === "serving" && "text-emerald-500",
+        (state === "degraded" || state === "not_serving") &&
+          "text-destructive",
+        state === "unknown" && "text-muted-foreground"
       )}
       aria-hidden="true"
     />
   )
+}
+
+function capabilityKindLabel(kind: CapabilityKind) {
+  return {
+    page: "页面",
+    action: "动作",
+    query: "查询",
+    workflow: "流程",
+  }[kind]
 }
 
 function IconButton({
@@ -654,10 +588,6 @@ function ThemeToggle() {
       )}
     </IconButton>
   )
-}
-
-function moduleName(key: Exclude<ModuleKey, "overview">) {
-  return modules.find((module) => module.key === key)?.name ?? key
 }
 
 export default App
