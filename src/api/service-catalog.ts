@@ -1,7 +1,11 @@
 import { create, fromJson, type JsonValue } from "@bufbuild/protobuf"
 import {
+  CapabilityAvailabilitySchema,
+  CapabilityAvailabilityStatus,
+  CapabilityDependencySchema,
   CapabilityDescriptorSchema,
   CapabilityKind,
+  CapabilityTargetSchema,
   ContractReferenceSchema,
   ListServicesResponseSchema,
   ServiceDescriptorSchema,
@@ -9,7 +13,7 @@ import {
   type ServiceDescriptor,
 } from "@byte-v-forge/contracts-ts/byte/v/forge/contracts/servicecatalog/v1/catalog_pb"
 
-export { CapabilityKind, ServiceHealthStatus }
+export { CapabilityAvailabilityStatus, CapabilityKind, ServiceHealthStatus }
 export type { ServiceDescriptor }
 
 const localCatalog = create(ListServicesResponseSchema, {
@@ -33,6 +37,9 @@ const localCatalog = create(ListServicesResponseSchema, {
           kind: CapabilityKind.QUERY,
           ownerServiceId: "service-catalog",
           invocationRef: "catalog://service-catalog/servicecatalog.services",
+          availability: create(CapabilityAvailabilitySchema, {
+            status: CapabilityAvailabilityStatus.AVAILABLE,
+          }),
         }),
       ],
     }),
@@ -62,6 +69,14 @@ const localCatalog = create(ListServicesResponseSchema, {
           }),
           invocationRef:
             "grpc://account-manager/AccountInventoryService.ListAccounts",
+          targets: [
+            create(CapabilityTargetSchema, {
+              resourceType: "account",
+            }),
+          ],
+          availability: create(CapabilityAvailabilitySchema, {
+            status: CapabilityAvailabilityStatus.AVAILABLE,
+          }),
         }),
         create(CapabilityDescriptorSchema, {
           capabilityId: "account.reservation.reserve",
@@ -77,6 +92,14 @@ const localCatalog = create(ListServicesResponseSchema, {
           }),
           invocationRef:
             "grpc://account-manager/AccountInventoryService.ReserveAccount",
+          targets: [
+            create(CapabilityTargetSchema, {
+              resourceType: "account",
+            }),
+          ],
+          availability: create(CapabilityAvailabilitySchema, {
+            status: CapabilityAvailabilityStatus.AVAILABLE,
+          }),
         }),
         create(CapabilityDescriptorSchema, {
           capabilityId: "account.tags.update",
@@ -92,8 +115,23 @@ const localCatalog = create(ListServicesResponseSchema, {
           }),
           invocationRef:
             "grpc://account-manager/AccountInventoryService.UpdateAccountTags",
+          targets: [
+            create(CapabilityTargetSchema, {
+              resourceType: "account",
+            }),
+          ],
+          availability: create(CapabilityAvailabilitySchema, {
+            status: CapabilityAvailabilityStatus.AVAILABLE,
+          }),
         }),
       ],
+    }),
+    create(ServiceDescriptorSchema, {
+      serviceId: "gopay-payment",
+      displayName: "GoPay 支付",
+      description: "GoPay 支付流程服务。",
+      owner: "gopay",
+      health: ServiceHealthStatus.SERVING,
     }),
     create(ServiceDescriptorSchema, {
       serviceId: "gpt-orchestrator",
@@ -121,6 +159,79 @@ const localCatalog = create(ListServicesResponseSchema, {
           }),
           invocationRef:
             "account://account-manager/accounts?owner_service=gpt-orchestrator",
+          targets: [
+            create(CapabilityTargetSchema, {
+              resourceType: "account.gpt",
+            }),
+          ],
+          availability: create(CapabilityAvailabilitySchema, {
+            status: CapabilityAvailabilityStatus.AVAILABLE,
+          }),
+        }),
+        create(CapabilityDescriptorSchema, {
+          capabilityId: "gpt.account.activate.gopay",
+          displayName: "GoPay 激活",
+          description: "使用 GoPay 通道处理 GPT 账号激活。",
+          kind: CapabilityKind.ACTION,
+          ownerServiceId: "gpt-orchestrator",
+          inputContract: create(ContractReferenceSchema, {
+            contractRef:
+              "internal-contracts/gptorchestrator/v1/ActivateGptAccountRequest",
+          }),
+          outputContract: create(ContractReferenceSchema, {
+            contractRef:
+              "internal-contracts/gptorchestrator/v1/ActivateGptAccountResponse",
+          }),
+          invocationRef:
+            "grpc://gpt-orchestrator/GptActivationService.ActivateWithGoPay",
+          targets: [
+            create(CapabilityTargetSchema, {
+              resourceType: "account.gpt",
+            }),
+          ],
+          dependencies: [
+            create(CapabilityDependencySchema, {
+              serviceId: "gopay-payment",
+              requiredHealth: ServiceHealthStatus.SERVING,
+              required: true,
+            }),
+          ],
+          availability: create(CapabilityAvailabilitySchema, {
+            status: CapabilityAvailabilityStatus.AVAILABLE,
+          }),
+        }),
+        create(CapabilityDescriptorSchema, {
+          capabilityId: "gpt.account.activate.paypal",
+          displayName: "PayPal 激活",
+          description: "使用 PayPal 通道处理 GPT 账号激活。",
+          kind: CapabilityKind.ACTION,
+          ownerServiceId: "gpt-orchestrator",
+          inputContract: create(ContractReferenceSchema, {
+            contractRef:
+              "internal-contracts/gptorchestrator/v1/ActivateGptAccountRequest",
+          }),
+          outputContract: create(ContractReferenceSchema, {
+            contractRef:
+              "internal-contracts/gptorchestrator/v1/ActivateGptAccountResponse",
+          }),
+          invocationRef:
+            "grpc://gpt-orchestrator/GptActivationService.ActivateWithPayPal",
+          targets: [
+            create(CapabilityTargetSchema, {
+              resourceType: "account.gpt",
+            }),
+          ],
+          dependencies: [
+            create(CapabilityDependencySchema, {
+              serviceId: "paypal-payment",
+              requiredHealth: ServiceHealthStatus.SERVING,
+              required: true,
+            }),
+          ],
+          availability: create(CapabilityAvailabilitySchema, {
+            status: CapabilityAvailabilityStatus.UNAVAILABLE,
+            reasonCode: "dependency_missing",
+          }),
         }),
       ],
     }),
@@ -150,6 +261,14 @@ const localCatalog = create(ListServicesResponseSchema, {
           }),
           invocationRef:
             "account://account-manager/accounts?owner_service=outlook-orchestrator",
+          targets: [
+            create(CapabilityTargetSchema, {
+              resourceType: "account.outlook",
+            }),
+          ],
+          availability: create(CapabilityAvailabilitySchema, {
+            status: CapabilityAvailabilityStatus.AVAILABLE,
+          }),
         }),
       ],
     }),
@@ -187,6 +306,11 @@ function normalizeServices(services: ServiceDescriptor[]): ServiceDescriptor[] {
     capabilities: (service.capabilities ?? []).map((capability) => ({
       ...capability,
       kind: normalizeKind(capability.kind),
+      targets: capability.targets ?? [],
+      dependencies: capability.dependencies ?? [],
+      availability: capability.availability ?? create(CapabilityAvailabilitySchema, {
+        status: CapabilityAvailabilityStatus.UNKNOWN,
+      }),
     })),
   }))
 }

@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Search,
   Sun,
+  Zap,
 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { create } from "@bufbuild/protobuf"
@@ -34,6 +35,7 @@ import {
 } from "@tanstack/react-query"
 
 import {
+  CapabilityAvailabilityStatus,
   CapabilityKind,
   ServiceHealthStatus,
   type ServiceDescriptor,
@@ -116,6 +118,9 @@ const localAccounts = [
       owner_service: "gpt-orchestrator",
       tier: "warm",
     },
+    tags: {
+      account_type: "gpt",
+    },
   }),
   create(AccountSchema, {
     accountId: "acct_demo_locked",
@@ -137,6 +142,9 @@ const localAccounts = [
     labels: {
       owner_service: "outlook-orchestrator",
       tier: "recovery",
+    },
+    tags: {
+      account_type: "outlook",
     },
   }),
 ]
@@ -255,6 +263,20 @@ function Dashboard() {
   const selectedAccountSource = services.find(
     (service) => service.serviceId === selectedAccount?.labels.owner_service
   )
+  const selectedAccountResourceTypes = useMemo(
+    () => (selectedAccount ? accountResourceTypes(selectedAccount) : ["account"]),
+    [selectedAccount]
+  )
+  const selectedAccountActions = useMemo(() => {
+    const targets = new Set(selectedAccountResourceTypes)
+
+    return capabilityRows.filter((capability) => {
+      return (
+        capability.kind === CapabilityKind.ACTION &&
+        capabilityTargetsAnyResource(capability, targets)
+      )
+    })
+  }, [capabilityRows, selectedAccountResourceTypes])
 
   const totalActive = services.reduce(
     (sum, service) => sum + service.activeCount,
@@ -561,6 +583,37 @@ function Dashboard() {
                           value={selectedAccount.labels.owner_service || "-"}
                         />
                       </div>
+                      <div className="space-y-2">
+                        <div className="text-xs font-medium text-muted-foreground">
+                          可用动作
+                        </div>
+                        {selectedAccountActions.length > 0 ? (
+                          <div className="grid gap-2">
+                            {selectedAccountActions.map((capability) => (
+                              <Button
+                                key={capability.capabilityId}
+                                className="justify-start gap-2"
+                                disabled={!capabilityAvailable(capability)}
+                                size="sm"
+                                type="button"
+                                variant="outline"
+                              >
+                                <Zap className="size-3.5" aria-hidden="true" />
+                                <span className="min-w-0 flex-1 truncate text-left">
+                                  {capability.displayName}
+                                </span>
+                                <Badge variant="secondary">
+                                  {capabilityAvailabilityLabel(capability)}
+                                </Badge>
+                              </Button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border bg-card p-3 text-xs text-muted-foreground">
+                            未发现动作
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
@@ -777,12 +830,64 @@ function HealthDot({ state }: { state: ServiceHealthStatus }) {
 }
 
 function isAccountCapability(capability: CatalogCapability) {
+  if (capability.targets.some((target) => target.resourceType === "account")) {
+    return true
+  }
+  if (
+    capability.targets.some((target) => target.resourceType.startsWith("account."))
+  ) {
+    return true
+  }
+
   return [
     capability.capabilityId,
     capability.invocationRef,
     capability.inputContract?.contractRef ?? "",
     capability.outputContract?.contractRef ?? "",
   ].some((value) => value.toLowerCase().includes("account"))
+}
+
+function accountResourceTypes(account: Account) {
+  const accountType =
+    account.tags.account_type ||
+    account.labels.account_type ||
+    (account.labels.owner_service ?? "").replace(/-orchestrator$/, "")
+
+  if (!accountType) {
+    return ["account"]
+  }
+
+  return ["account", `account.${accountType}`]
+}
+
+function capabilityTargetsAnyResource(
+  capability: CatalogCapability,
+  resourceTypes: Set<string>
+) {
+  if (capability.targets.length === 0) {
+    return false
+  }
+
+  return capability.targets.some((target) => resourceTypes.has(target.resourceType))
+}
+
+function capabilityAvailable(capability: CatalogCapability) {
+  return (
+    capability.availability?.status === CapabilityAvailabilityStatus.AVAILABLE
+  )
+}
+
+function capabilityAvailabilityLabel(capability: CatalogCapability) {
+  switch (capability.availability?.status) {
+    case CapabilityAvailabilityStatus.AVAILABLE:
+      return "ready"
+    case CapabilityAvailabilityStatus.UNAVAILABLE:
+      return capability.availability.reasonCode || "unavailable"
+    case CapabilityAvailabilityStatus.UNKNOWN:
+    case CapabilityAvailabilityStatus.UNSPECIFIED:
+    default:
+      return "unknown"
+  }
 }
 
 function capabilityKindLabel(kind: CapabilityKind) {
