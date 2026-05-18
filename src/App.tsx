@@ -14,9 +14,9 @@ import { useMemo, useState } from "react"
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query"
 
 import {
-  type CapabilityKind,
+  CapabilityKind,
+  ServiceHealthStatus,
   type ServiceDescriptor,
-  type ServiceHealthStatus,
   listServices,
 } from "@/api/service-catalog"
 import { Badge } from "@/components/ui/badge"
@@ -161,7 +161,7 @@ function Dashboard() {
               <nav className="space-y-1">
                 <ServiceNavButton
                   active={activeServiceId === overviewKey}
-                  health="serving"
+                  health={ServiceHealthStatus.SERVING}
                   icon={Activity}
                   label="总览"
                   onClick={() => setActiveServiceId(overviewKey)}
@@ -306,17 +306,27 @@ function Dashboard() {
                       />
                     </div>
                     <Tabs
-                      value={kindFilter}
+                      value={
+                        kindFilter === "all" ? "all" : String(kindFilter)
+                      }
                       onValueChange={(value) =>
-                        setKindFilter(value as "all" | CapabilityKind)
+                        setKindFilter(parseCapabilityKindFilter(value))
                       }
                     >
                       <TabsList className="h-8">
                         <TabsTrigger value="all">全部</TabsTrigger>
-                        <TabsTrigger value="page">页面</TabsTrigger>
-                        <TabsTrigger value="action">动作</TabsTrigger>
-                        <TabsTrigger value="query">查询</TabsTrigger>
-                        <TabsTrigger value="workflow">流程</TabsTrigger>
+                        <TabsTrigger value={String(CapabilityKind.PAGE)}>
+                          页面
+                        </TabsTrigger>
+                        <TabsTrigger value={String(CapabilityKind.ACTION)}>
+                          动作
+                        </TabsTrigger>
+                        <TabsTrigger value={String(CapabilityKind.QUERY)}>
+                          查询
+                        </TabsTrigger>
+                        <TabsTrigger value={String(CapabilityKind.WORKFLOW)}>
+                          流程
+                        </TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </div>
@@ -386,7 +396,11 @@ function Dashboard() {
                           owner: {selectedService?.owner ?? "platform"}
                         </div>
                       </div>
-                      <HealthBadge state={selectedService?.health ?? "serving"} />
+                      <HealthBadge
+                        state={
+                          selectedService?.health ?? ServiceHealthStatus.SERVING
+                        }
+                      />
                     </div>
                     <p className="mt-3 text-xs leading-5 text-muted-foreground">
                       {pageDescription}
@@ -399,15 +413,17 @@ function Dashboard() {
                 <section>
                   <div className="mb-3 text-sm font-medium">契约引用</div>
                   <div className="space-y-2 text-xs">
-                    {(selectedService?.contracts ?? [
-                      { contractRef: "contracts/servicecatalog/v1" },
-                    ]).map((contract) => (
-                      <StatusLine
-                        key={contract.contractRef}
-                        label={contract.contractRef}
-                        ok
-                      />
-                    ))}
+                    {selectedService ? (
+                      selectedService.contracts.map((contract) => (
+                        <StatusLine
+                          key={contract.contractRef}
+                          label={contract.contractRef}
+                          ok
+                        />
+                      ))
+                    ) : (
+                      <StatusLine label="contracts/servicecatalog/v1" ok />
+                    )}
                   </div>
                 </section>
               </div>
@@ -420,7 +436,9 @@ function Dashboard() {
 }
 
 function toCatalogService(service: ServiceDescriptor): CatalogService {
-  const degraded = service.health === "degraded" || service.health === "not_serving"
+  const degraded =
+    service.health === ServiceHealthStatus.DEGRADED ||
+    service.health === ServiceHealthStatus.NOT_SERVING
 
   return {
     ...service,
@@ -499,21 +517,19 @@ function StatusLine({ label, ok = false }: { label: string; ok?: boolean }) {
 }
 
 function HealthBadge({ state }: { state: ServiceHealthStatus }) {
-  const label = {
-    unknown: "unknown",
-    serving: "serving",
-    degraded: "degraded",
-    not_serving: "not serving",
-  }[state]
+  const label = healthLabel(state)
 
   return (
     <Badge
       variant={
-        state === "degraded" || state === "not_serving"
+        state === ServiceHealthStatus.DEGRADED ||
+        state === ServiceHealthStatus.NOT_SERVING
           ? "destructive"
           : "secondary"
       }
-      className={cn(state === "serving" && "bg-emerald-600 text-white")}
+      className={cn(
+        state === ServiceHealthStatus.SERVING && "bg-emerald-600 text-white"
+      )}
     >
       <HealthDot state={state} />
       {label}
@@ -526,10 +542,13 @@ function HealthDot({ state }: { state: ServiceHealthStatus }) {
     <CircleDot
       className={cn(
         "size-3",
-        state === "serving" && "text-emerald-500",
-        (state === "degraded" || state === "not_serving") &&
+        state === ServiceHealthStatus.SERVING && "text-emerald-500",
+        (state === ServiceHealthStatus.DEGRADED ||
+          state === ServiceHealthStatus.NOT_SERVING) &&
           "text-destructive",
-        state === "unknown" && "text-muted-foreground"
+        (state === ServiceHealthStatus.UNKNOWN ||
+          state === ServiceHealthStatus.UNSPECIFIED) &&
+          "text-muted-foreground"
       )}
       aria-hidden="true"
     />
@@ -537,12 +556,49 @@ function HealthDot({ state }: { state: ServiceHealthStatus }) {
 }
 
 function capabilityKindLabel(kind: CapabilityKind) {
-  return {
-    page: "页面",
-    action: "动作",
-    query: "查询",
-    workflow: "流程",
-  }[kind]
+  switch (kind) {
+    case CapabilityKind.PAGE:
+      return "页面"
+    case CapabilityKind.ACTION:
+      return "动作"
+    case CapabilityKind.WORKFLOW:
+      return "流程"
+    case CapabilityKind.QUERY:
+      return "查询"
+    case CapabilityKind.UNSPECIFIED:
+    default:
+      return "查询"
+  }
+}
+
+function healthLabel(state: ServiceHealthStatus) {
+  switch (state) {
+    case ServiceHealthStatus.SERVING:
+      return "serving"
+    case ServiceHealthStatus.DEGRADED:
+      return "degraded"
+    case ServiceHealthStatus.NOT_SERVING:
+      return "not serving"
+    case ServiceHealthStatus.UNKNOWN:
+    case ServiceHealthStatus.UNSPECIFIED:
+    default:
+      return "unknown"
+  }
+}
+
+function parseCapabilityKindFilter(value: string): "all" | CapabilityKind {
+  switch (Number(value)) {
+    case CapabilityKind.PAGE:
+      return CapabilityKind.PAGE
+    case CapabilityKind.ACTION:
+      return CapabilityKind.ACTION
+    case CapabilityKind.QUERY:
+      return CapabilityKind.QUERY
+    case CapabilityKind.WORKFLOW:
+      return CapabilityKind.WORKFLOW
+    default:
+      return "all"
+  }
 }
 
 function IconButton({

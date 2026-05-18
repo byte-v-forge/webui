@@ -1,63 +1,43 @@
-export type ServiceHealthStatus =
-  | "unknown"
-  | "serving"
-  | "degraded"
-  | "not_serving"
+import { create, fromJson, type JsonValue } from "@bufbuild/protobuf"
+import {
+  CapabilityDescriptorSchema,
+  CapabilityKind,
+  ContractReferenceSchema,
+  ListServicesResponseSchema,
+  ServiceDescriptorSchema,
+  ServiceHealthStatus,
+  type ServiceDescriptor,
+} from "@byte-v-forge/contracts-ts/byte/v/forge/contracts/servicecatalog/v1/catalog_pb"
 
-export type CapabilityKind = "page" | "action" | "query" | "workflow"
+export { CapabilityKind, ServiceHealthStatus }
+export type { ServiceDescriptor }
 
-export type ContractReference = {
-  contractRef: string
-}
-
-export type CapabilityDescriptor = {
-  capabilityId: string
-  displayName: string
-  description: string
-  kind: CapabilityKind
-  ownerServiceId: string
-  inputContract?: ContractReference
-  outputContract?: ContractReference
-  invocationRef: string
-}
-
-export type ServiceDescriptor = {
-  serviceId: string
-  displayName: string
-  description: string
-  owner: string
-  health: ServiceHealthStatus
-  contracts: ContractReference[]
-  capabilities: CapabilityDescriptor[]
-  updatedAt?: string
-}
-
-export type ServiceCatalogResponse = {
-  services: ServiceDescriptor[]
-}
-
-const localCatalog: ServiceCatalogResponse = {
+const localCatalog = create(ListServicesResponseSchema, {
   services: [
-    {
+    create(ServiceDescriptorSchema, {
       serviceId: "service-catalog",
       displayName: "服务目录",
       description: "服务、能力、契约引用和入口引用的发现入口。",
       owner: "platform",
-      health: "serving",
-      contracts: [{ contractRef: "contracts/servicecatalog/v1" }],
+      health: ServiceHealthStatus.SERVING,
+      contracts: [
+        create(ContractReferenceSchema, {
+          contractRef: "contracts/servicecatalog/v1",
+        }),
+      ],
       capabilities: [
-        {
+        create(CapabilityDescriptorSchema, {
           capabilityId: "servicecatalog.services",
           displayName: "服务发现",
           description: "列出已注册服务及其能力描述。",
-          kind: "query",
+          kind: CapabilityKind.QUERY,
           ownerServiceId: "service-catalog",
           invocationRef: "catalog://service-catalog/servicecatalog.services",
-        },
+        }),
       ],
-    },
+    }),
   ],
-}
+})
 
 export async function listServices(): Promise<ServiceDescriptor[]> {
   const baseUrl = import.meta.env.VITE_SERVICE_CATALOG_API_BASE_URL as
@@ -74,7 +54,11 @@ export async function listServices(): Promise<ServiceDescriptor[]> {
     throw new Error(`service catalog request failed: ${response.status}`)
   }
 
-  const body = (await response.json()) as ServiceCatalogResponse
+  const body = fromJson(
+    ListServicesResponseSchema,
+    (await response.json()) as JsonValue,
+    { ignoreUnknownFields: true }
+  )
   return normalizeServices(body.services)
 }
 
@@ -90,38 +74,30 @@ function normalizeServices(services: ServiceDescriptor[]): ServiceDescriptor[] {
   }))
 }
 
-function normalizeHealth(value: string): ServiceHealthStatus {
+function normalizeHealth(value: ServiceHealthStatus): ServiceHealthStatus {
   switch (value) {
-    case "SERVICE_HEALTH_STATUS_SERVING":
-    case "serving":
-      return "serving"
-    case "SERVICE_HEALTH_STATUS_DEGRADED":
-    case "degraded":
-      return "degraded"
-    case "SERVICE_HEALTH_STATUS_NOT_SERVING":
-    case "not_serving":
-      return "not_serving"
-    case "SERVICE_HEALTH_STATUS_UNKNOWN":
-    case "unknown":
+    case ServiceHealthStatus.SERVING:
+      return ServiceHealthStatus.SERVING
+    case ServiceHealthStatus.DEGRADED:
+      return ServiceHealthStatus.DEGRADED
+    case ServiceHealthStatus.NOT_SERVING:
+      return ServiceHealthStatus.NOT_SERVING
+    case ServiceHealthStatus.UNKNOWN:
     default:
-      return "unknown"
+      return ServiceHealthStatus.UNKNOWN
   }
 }
 
-function normalizeKind(value: string): CapabilityKind {
+function normalizeKind(value: CapabilityKind): CapabilityKind {
   switch (value) {
-    case "CAPABILITY_KIND_PAGE":
-    case "page":
-      return "page"
-    case "CAPABILITY_KIND_ACTION":
-    case "action":
-      return "action"
-    case "CAPABILITY_KIND_WORKFLOW":
-    case "workflow":
-      return "workflow"
-    case "CAPABILITY_KIND_QUERY":
-    case "query":
+    case CapabilityKind.PAGE:
+      return CapabilityKind.PAGE
+    case CapabilityKind.ACTION:
+      return CapabilityKind.ACTION
+    case CapabilityKind.WORKFLOW:
+      return CapabilityKind.WORKFLOW
+    case CapabilityKind.QUERY:
     default:
-      return "query"
+      return CapabilityKind.QUERY
   }
 }

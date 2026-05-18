@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.12.0
+        version: 2.12.0
+      '@byte-v-forge/contracts-ts':
+        specifier: git+https://github.com/byte-v-forge/contracts-ts.git#v0.3.0
+        version: https://codeload.github.com/byte-v-forge/contracts-ts/tar.gz/f41b8fd455c876bd54a0304b2d81a3938db1d3ce
       '@fontsource-variable/geist':
         specifier: ^5.2.9
         version: 5.2.9
@@ -224,6 +230,13 @@ packages:
   '@babel/types@7.29.0':
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
+
+  '@bufbuild/protobuf@2.12.0':
+    resolution: {integrity: sha512-B/XlCaFIP8LOwzo+bz5uFzATYokcwCKQcghqnlfwSmM5eX/qTkvDBnDPs+gXtX/RyjxJ4DRikECcPJbyALA8FA==}
+
+  '@byte-v-forge/contracts-ts@https://codeload.github.com/byte-v-forge/contracts-ts/tar.gz/f41b8fd455c876bd54a0304b2d81a3938db1d3ce':
+    resolution: {tarball: https://codeload.github.com/byte-v-forge/contracts-ts/tar.gz/f41b8fd455c876bd54a0304b2d81a3938db1d3ce}
+    version: 0.3.0
 
   '@dotenvx/dotenvx@1.66.0':
     resolution: {integrity: sha512-qlQFhHUjhRDybrinqLAD0MClVZDOrsq80O8eD5iSjz3Qa/4f3Jg7SQrOaSobrRyP1QaWIYLGtGpj2c7H0D8NUw==}
@@ -3489,6 +3502,12 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
+
+  '@bufbuild/protobuf@2.12.0': {}
+
+  '@byte-v-forge/contracts-ts@https://codeload.github.com/byte-v-forge/contracts-ts/tar.gz/f41b8fd455c876bd54a0304b2d81a3938db1d3ce':
+    dependencies:
+      '@bufbuild/protobuf': 2.12.0
 
   '@dotenvx/dotenvx@1.66.0':
     dependencies:
