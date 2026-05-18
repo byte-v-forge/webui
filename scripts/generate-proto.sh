@@ -22,6 +22,5 @@ protoc -I "${ROOT}/proto" \
   "${ROOT}/proto/account_db.proto" \
   "${ROOT}/proto/email.proto" \
   "${ROOT}/proto/gopay_app.proto" \
-  "${ROOT}/proto/mailbox_register.proto" \
   "${ROOT}/proto/payment.proto" \
   "${ORCHESTRATOR_PROTOS[@]}"
