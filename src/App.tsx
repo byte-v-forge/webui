@@ -91,7 +91,7 @@ const overviewKey = "overview"
 const localAccounts = [
   create(AccountSchema, {
     accountId: "acct_demo_active",
-    displayName: "GPT registration pool",
+    displayName: "GPT account pool",
     primaryIdentifier: create(AccountIdentifierSchema, {
       kind: AccountIdentifierKind.EMAIL,
       value: "pool@example.test",
@@ -115,7 +115,7 @@ const localAccounts = [
       }),
     ],
     labels: {
-      owner_service: "gpt-orchestrator",
+      owner_service: "gpt-account",
       tier: "warm",
     },
     tags: {
@@ -140,7 +140,7 @@ const localAccounts = [
       }),
     ],
     labels: {
-      owner_service: "outlook-orchestrator",
+      owner_service: "outlook-account",
       tier: "recovery",
     },
     tags: {
@@ -397,7 +397,7 @@ function Dashboard() {
                   <div>
                     <div className="text-sm font-medium">账号库存</div>
                     <div className="text-xs text-muted-foreground">
-                      按注册服务和状态筛选账号池。
+                      按账号类型、来源服务和状态筛选账号池。
                     </div>
                   </div>
                   <div className="flex flex-col gap-2">

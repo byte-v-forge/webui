@@ -2,7 +2,6 @@ import { create, fromJson, type JsonValue } from "@bufbuild/protobuf"
 import {
   CapabilityAvailabilitySchema,
   CapabilityAvailabilityStatus,
-  CapabilityDependencySchema,
   CapabilityDescriptorSchema,
   CapabilityKind,
   CapabilityTargetSchema,
@@ -127,16 +126,9 @@ const localCatalog = create(ListServicesResponseSchema, {
       ],
     }),
     create(ServiceDescriptorSchema, {
-      serviceId: "gopay-payment",
-      displayName: "GoPay 支付",
-      description: "GoPay 支付流程服务。",
-      owner: "gopay",
-      health: ServiceHealthStatus.SERVING,
-    }),
-    create(ServiceDescriptorSchema, {
-      serviceId: "gpt-orchestrator",
-      displayName: "GPT 注册",
-      description: "GPT 注册流程和账号池协作入口。",
+      serviceId: "gpt-account",
+      displayName: "GPT 账号管理",
+      description: "GPT 账号视图、扩展字段和库存查询入口。",
       owner: "gpt",
       health: ServiceHealthStatus.SERVING,
       contracts: [
@@ -146,19 +138,19 @@ const localCatalog = create(ListServicesResponseSchema, {
       ],
       capabilities: [
         create(CapabilityDescriptorSchema, {
-          capabilityId: "gpt.account.pool",
+          capabilityId: "gpt.account.inventory",
           displayName: "GPT 账号池",
-          description: "面向 GPT 注册流程的账号池查询入口。",
+          description: "查询 GPT 账号库存和公开展示字段。",
           kind: CapabilityKind.QUERY,
-          ownerServiceId: "gpt-orchestrator",
+          ownerServiceId: "gpt-account",
           inputContract: create(ContractReferenceSchema, {
-            contractRef: "contracts/account/v1/AccountListFilter",
+            contractRef: "contracts/account/v1/ListAccountsRequest",
           }),
           outputContract: create(ContractReferenceSchema, {
-            contractRef: "contracts/account/v1/Account",
+            contractRef: "contracts/account/v1/ListAccountsResponse",
           }),
           invocationRef:
-            "account://account-manager/accounts?owner_service=gpt-orchestrator",
+            "account://account-manager/accounts?account_type=gpt",
           targets: [
             create(CapabilityTargetSchema, {
               resourceType: "account.gpt",
@@ -169,76 +161,34 @@ const localCatalog = create(ListServicesResponseSchema, {
           }),
         }),
         create(CapabilityDescriptorSchema, {
-          capabilityId: "gpt.account.activate.gopay",
-          displayName: "GoPay 激活",
-          description: "使用 GoPay 通道处理 GPT 账号激活。",
+          capabilityId: "gpt.account.profile.refresh",
+          displayName: "刷新 GPT 账号资料",
+          description: "刷新 GPT 账号公开资料和扩展字段。",
           kind: CapabilityKind.ACTION,
-          ownerServiceId: "gpt-orchestrator",
+          ownerServiceId: "gpt-account",
           inputContract: create(ContractReferenceSchema, {
-            contractRef:
-              "internal-contracts/gptorchestrator/v1/ActivateWithGoPayRequest",
+            contractRef: "contracts/account/v1/GetAccountRequest",
           }),
           outputContract: create(ContractReferenceSchema, {
-            contractRef:
-              "internal-contracts/gptorchestrator/v1/ActivateWithGoPayResponse",
+            contractRef: "contracts/account/v1/GetAccountResponse",
           }),
           invocationRef:
-            "grpc://gpt-orchestrator/GptActivationService.ActivateWithGoPay",
+            "grpc://gpt-account/GptAccountProfileService.RefreshProfile",
           targets: [
             create(CapabilityTargetSchema, {
               resourceType: "account.gpt",
-            }),
-          ],
-          dependencies: [
-            create(CapabilityDependencySchema, {
-              serviceId: "gopay-payment",
-              requiredHealth: ServiceHealthStatus.SERVING,
-              required: true,
             }),
           ],
           availability: create(CapabilityAvailabilitySchema, {
             status: CapabilityAvailabilityStatus.AVAILABLE,
-          }),
-        }),
-        create(CapabilityDescriptorSchema, {
-          capabilityId: "gpt.account.activate.paypal",
-          displayName: "PayPal 激活",
-          description: "使用 PayPal 通道处理 GPT 账号激活。",
-          kind: CapabilityKind.ACTION,
-          ownerServiceId: "gpt-orchestrator",
-          inputContract: create(ContractReferenceSchema, {
-            contractRef:
-              "internal-contracts/gptorchestrator/v1/ActivateWithPayPalRequest",
-          }),
-          outputContract: create(ContractReferenceSchema, {
-            contractRef:
-              "internal-contracts/gptorchestrator/v1/ActivateWithPayPalResponse",
-          }),
-          invocationRef:
-            "grpc://gpt-orchestrator/GptActivationService.ActivateWithPayPal",
-          targets: [
-            create(CapabilityTargetSchema, {
-              resourceType: "account.gpt",
-            }),
-          ],
-          dependencies: [
-            create(CapabilityDependencySchema, {
-              serviceId: "paypal-payment",
-              requiredHealth: ServiceHealthStatus.SERVING,
-              required: true,
-            }),
-          ],
-          availability: create(CapabilityAvailabilitySchema, {
-            status: CapabilityAvailabilityStatus.UNAVAILABLE,
-            reasonCode: "dependency_missing",
           }),
         }),
       ],
     }),
     create(ServiceDescriptorSchema, {
-      serviceId: "outlook-orchestrator",
-      displayName: "Outlook 注册",
-      description: "Outlook 注册流程和账号池协作入口。",
+      serviceId: "outlook-account",
+      displayName: "Outlook 账号管理",
+      description: "Outlook 账号视图、扩展字段和库存查询入口。",
       owner: "outlook",
       health: ServiceHealthStatus.SERVING,
       contracts: [
@@ -248,19 +198,42 @@ const localCatalog = create(ListServicesResponseSchema, {
       ],
       capabilities: [
         create(CapabilityDescriptorSchema, {
-          capabilityId: "outlook.account.pool",
+          capabilityId: "outlook.account.inventory",
           displayName: "Outlook 账号池",
-          description: "面向 Outlook 注册流程的账号池查询入口。",
+          description: "查询 Outlook 账号库存和公开展示字段。",
           kind: CapabilityKind.QUERY,
-          ownerServiceId: "outlook-orchestrator",
+          ownerServiceId: "outlook-account",
           inputContract: create(ContractReferenceSchema, {
-            contractRef: "contracts/account/v1/AccountListFilter",
+            contractRef: "contracts/account/v1/ListAccountsRequest",
           }),
           outputContract: create(ContractReferenceSchema, {
-            contractRef: "contracts/account/v1/Account",
+            contractRef: "contracts/account/v1/ListAccountsResponse",
           }),
           invocationRef:
-            "account://account-manager/accounts?owner_service=outlook-orchestrator",
+            "account://account-manager/accounts?account_type=outlook",
+          targets: [
+            create(CapabilityTargetSchema, {
+              resourceType: "account.outlook",
+            }),
+          ],
+          availability: create(CapabilityAvailabilitySchema, {
+            status: CapabilityAvailabilityStatus.AVAILABLE,
+          }),
+        }),
+        create(CapabilityDescriptorSchema, {
+          capabilityId: "outlook.account.profile.refresh",
+          displayName: "刷新 Outlook 账号资料",
+          description: "刷新 Outlook 账号公开资料和扩展字段。",
+          kind: CapabilityKind.ACTION,
+          ownerServiceId: "outlook-account",
+          inputContract: create(ContractReferenceSchema, {
+            contractRef: "contracts/account/v1/GetAccountRequest",
+          }),
+          outputContract: create(ContractReferenceSchema, {
+            contractRef: "contracts/account/v1/GetAccountResponse",
+          }),
+          invocationRef:
+            "grpc://outlook-account/OutlookAccountProfileService.RefreshProfile",
           targets: [
             create(CapabilityTargetSchema, {
               resourceType: "account.outlook",
