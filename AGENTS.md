@@ -9,6 +9,7 @@
 - 禁止把业务核心逻辑、业务状态机、业务私有接口沉淀到 dashboard。
 - 禁止直接 import 业务仓源码；业务协作只能通过 `contracts/servicecatalog`、gRPC-Web、HTTP gateway 或事件投影边界完成。
 - 前端不得硬编码具体业务服务动作；服务、能力、契约引用和入口引用由服务目录返回。
+- 动态 action 的参数类型来自 catalog 返回的具体 proto input/output contract 引用；页面不得手写 provider 私有参数 shape。
 - 公共契约来自 `contracts` 仓；本仓不维护业务私有 proto。
 - 运行时配置使用 `VITE_*` 环境变量，不在代码中硬编码环境地址、token、cookie 或 secret。
 - 不提交生成物，包括 `dist/`、覆盖率报告、测试报告、IDL 生成代码和其他可再生成产物。

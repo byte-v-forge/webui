@@ -176,11 +176,11 @@ const localCatalog = create(ListServicesResponseSchema, {
           ownerServiceId: "gpt-orchestrator",
           inputContract: create(ContractReferenceSchema, {
             contractRef:
-              "internal-contracts/gptorchestrator/v1/ActivateGptAccountRequest",
+              "internal-contracts/gptorchestrator/v1/ActivateWithGoPayRequest",
           }),
           outputContract: create(ContractReferenceSchema, {
             contractRef:
-              "internal-contracts/gptorchestrator/v1/ActivateGptAccountResponse",
+              "internal-contracts/gptorchestrator/v1/ActivateWithGoPayResponse",
           }),
           invocationRef:
             "grpc://gpt-orchestrator/GptActivationService.ActivateWithGoPay",
@@ -208,11 +208,11 @@ const localCatalog = create(ListServicesResponseSchema, {
           ownerServiceId: "gpt-orchestrator",
           inputContract: create(ContractReferenceSchema, {
             contractRef:
-              "internal-contracts/gptorchestrator/v1/ActivateGptAccountRequest",
+              "internal-contracts/gptorchestrator/v1/ActivateWithPayPalRequest",
           }),
           outputContract: create(ContractReferenceSchema, {
             contractRef:
-              "internal-contracts/gptorchestrator/v1/ActivateGptAccountResponse",
+              "internal-contracts/gptorchestrator/v1/ActivateWithPayPalResponse",
           }),
           invocationRef:
             "grpc://gpt-orchestrator/GptActivationService.ActivateWithPayPal",
