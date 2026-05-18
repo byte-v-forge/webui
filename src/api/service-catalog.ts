@@ -36,6 +36,108 @@ const localCatalog = create(ListServicesResponseSchema, {
         }),
       ],
     }),
+    create(ServiceDescriptorSchema, {
+      serviceId: "account-manager",
+      displayName: "账号库存",
+      description: "账号查询、凭据引用、账号分配和释放入口。",
+      owner: "account",
+      health: ServiceHealthStatus.SERVING,
+      contracts: [
+        create(ContractReferenceSchema, {
+          contractRef: "contracts/account/v1",
+        }),
+      ],
+      capabilities: [
+        create(CapabilityDescriptorSchema, {
+          capabilityId: "account.inventory.list",
+          displayName: "账号查询",
+          description: "按状态、标识和标签查询账号库存。",
+          kind: CapabilityKind.QUERY,
+          ownerServiceId: "account-manager",
+          inputContract: create(ContractReferenceSchema, {
+            contractRef: "contracts/account/v1/ListAccountsRequest",
+          }),
+          outputContract: create(ContractReferenceSchema, {
+            contractRef: "contracts/account/v1/ListAccountsResponse",
+          }),
+          invocationRef:
+            "grpc://account-manager/AccountInventoryService.ListAccounts",
+        }),
+        create(CapabilityDescriptorSchema, {
+          capabilityId: "account.reservation.reserve",
+          displayName: "账号占用",
+          description: "按 selector 占用可用账号。",
+          kind: CapabilityKind.ACTION,
+          ownerServiceId: "account-manager",
+          inputContract: create(ContractReferenceSchema, {
+            contractRef: "contracts/account/v1/ReserveAccountRequest",
+          }),
+          outputContract: create(ContractReferenceSchema, {
+            contractRef: "contracts/account/v1/ReserveAccountResponse",
+          }),
+          invocationRef:
+            "grpc://account-manager/AccountInventoryService.ReserveAccount",
+        }),
+      ],
+    }),
+    create(ServiceDescriptorSchema, {
+      serviceId: "gpt-orchestrator",
+      displayName: "GPT 注册",
+      description: "GPT 注册流程和账号池协作入口。",
+      owner: "gpt",
+      health: ServiceHealthStatus.SERVING,
+      contracts: [
+        create(ContractReferenceSchema, {
+          contractRef: "contracts/account/v1",
+        }),
+      ],
+      capabilities: [
+        create(CapabilityDescriptorSchema, {
+          capabilityId: "gpt.account.pool",
+          displayName: "GPT 账号池",
+          description: "面向 GPT 注册流程的账号池查询入口。",
+          kind: CapabilityKind.QUERY,
+          ownerServiceId: "gpt-orchestrator",
+          inputContract: create(ContractReferenceSchema, {
+            contractRef: "contracts/account/v1/AccountListFilter",
+          }),
+          outputContract: create(ContractReferenceSchema, {
+            contractRef: "contracts/account/v1/Account",
+          }),
+          invocationRef:
+            "account://account-manager/accounts?owner_service=gpt-orchestrator",
+        }),
+      ],
+    }),
+    create(ServiceDescriptorSchema, {
+      serviceId: "outlook-orchestrator",
+      displayName: "Outlook 注册",
+      description: "Outlook 注册流程和账号池协作入口。",
+      owner: "outlook",
+      health: ServiceHealthStatus.SERVING,
+      contracts: [
+        create(ContractReferenceSchema, {
+          contractRef: "contracts/account/v1",
+        }),
+      ],
+      capabilities: [
+        create(CapabilityDescriptorSchema, {
+          capabilityId: "outlook.account.pool",
+          displayName: "Outlook 账号池",
+          description: "面向 Outlook 注册流程的账号池查询入口。",
+          kind: CapabilityKind.QUERY,
+          ownerServiceId: "outlook-orchestrator",
+          inputContract: create(ContractReferenceSchema, {
+            contractRef: "contracts/account/v1/AccountListFilter",
+          }),
+          outputContract: create(ContractReferenceSchema, {
+            contractRef: "contracts/account/v1/Account",
+          }),
+          invocationRef:
+            "account://account-manager/accounts?owner_service=outlook-orchestrator",
+        }),
+      ],
+    }),
   ],
 })
 

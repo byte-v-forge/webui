@@ -27,7 +27,11 @@ import {
   AccountStatusFilter,
   AccountSummary,
 } from "@byte-v-forge/uikit"
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query"
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query"
 
 import {
   CapabilityKind,
@@ -70,6 +74,16 @@ type CatalogService = ServiceDescriptor & {
   backlogCount: number
 }
 
+type CatalogCapability = ServiceDescriptor["capabilities"][number]
+
+type AccountScope = {
+  serviceId: string
+  displayName: string
+  description: string
+  health: ServiceHealthStatus
+  capabilities: CatalogCapability[]
+}
+
 const queryClient = new QueryClient()
 const overviewKey = "overview"
 const localAccounts = [
@@ -99,13 +113,13 @@ const localAccounts = [
       }),
     ],
     labels: {
-      owner_service: "account-manager",
+      owner_service: "gpt-orchestrator",
       tier: "warm",
     },
   }),
   create(AccountSchema, {
     accountId: "acct_demo_locked",
-    displayName: "Recovery queue",
+    displayName: "Outlook recovery pool",
     primaryIdentifier: create(AccountIdentifierSchema, {
       kind: AccountIdentifierKind.EMAIL,
       value: "recovery@example.test",
@@ -121,7 +135,7 @@ const localAccounts = [
       }),
     ],
     labels: {
-      owner_service: "account-manager",
+      owner_service: "outlook-orchestrator",
       tier: "recovery",
     },
   }),
@@ -142,6 +156,7 @@ function Dashboard() {
   const [environment, setEnvironment] = useState("local")
   const [query, setQuery] = useState("")
   const [kindFilter, setKindFilter] = useState<"all" | CapabilityKind>("all")
+  const [accountScopeFilter, setAccountScopeFilter] = useState("all")
   const [accountStatusFilter, setAccountStatusFilter] = useState<
     "all" | AccountLifecycleStatus
   >("all")
@@ -202,15 +217,43 @@ function Dashboard() {
     })
   }, [activeServiceId, capabilityRows, kindFilter, query])
 
+  const accountScopes = useMemo(() => {
+    return services
+      .map((service): AccountScope => {
+        return {
+          serviceId: service.serviceId,
+          displayName: service.displayName,
+          description: service.description,
+          health: service.health,
+          capabilities: service.capabilities.filter(isAccountCapability),
+        }
+      })
+      .filter((scope) => scope.capabilities.length > 0)
+  }, [services])
+
   const visibleAccounts = useMemo(() => {
-    if (accountStatusFilter === "all") {
-      return localAccounts
-    }
-    return localAccounts.filter((account) => account.status === accountStatusFilter)
-  }, [accountStatusFilter])
+    return localAccounts.filter((account) => {
+      const scopeMatched =
+        accountScopeFilter === "all" ||
+        account.labels.owner_service === accountScopeFilter
+      const statusMatched =
+        accountStatusFilter === "all" || account.status === accountStatusFilter
+
+      return scopeMatched && statusMatched
+    })
+  }, [accountScopeFilter, accountStatusFilter])
+
+  const effectiveSelectedAccountId = visibleAccounts.some(
+    (account) => account.accountId === selectedAccountId
+  )
+    ? selectedAccountId
+    : visibleAccounts[0]?.accountId
 
   const selectedAccount = localAccounts.find(
-    (account) => account.accountId === selectedAccountId
+    (account) => account.accountId === effectiveSelectedAccountId
+  )
+  const selectedAccountSource = services.find(
+    (service) => service.serviceId === selectedAccount?.labels.owner_service
   )
 
   const totalActive = services.reduce(
@@ -332,17 +375,24 @@ function Dashboard() {
                   <div>
                     <div className="text-sm font-medium">账号库存</div>
                     <div className="text-xs text-muted-foreground">
-                      按状态筛选账号池，查看凭据引用。
+                      按注册服务和状态筛选账号池。
                     </div>
                   </div>
-                  <AccountStatusFilter
-                    value={accountStatusFilter}
-                    onChange={setAccountStatusFilter}
-                  />
+                  <div className="flex flex-col gap-2">
+                    <AccountScopeFilter
+                      scopes={accountScopes}
+                      value={accountScopeFilter}
+                      onChange={setAccountScopeFilter}
+                    />
+                    <AccountStatusFilter
+                      value={accountStatusFilter}
+                      onChange={setAccountStatusFilter}
+                    />
+                  </div>
                 </div>
                 <AccountList
                   accounts={visibleAccounts}
-                  selectedAccountId={selectedAccountId}
+                  selectedAccountId={effectiveSelectedAccountId}
                   onAccountSelect={(account: Account) =>
                     setSelectedAccountId(account.accountId)
                   }
@@ -415,9 +465,7 @@ function Dashboard() {
                       />
                     </div>
                     <Tabs
-                      value={
-                        kindFilter === "all" ? "all" : String(kindFilter)
-                      }
+                      value={kindFilter === "all" ? "all" : String(kindFilter)}
                       onValueChange={(value) =>
                         setKindFilter(parseCapabilityKindFilter(value))
                       }
@@ -441,7 +489,7 @@ function Dashboard() {
                   </div>
                 </div>
 
-                <Table>
+                <Table className="min-w-[760px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>能力</TableHead>
@@ -486,7 +534,10 @@ function Dashboard() {
                 <section>
                   <div className="mb-3 text-sm font-medium">发现边界</div>
                   <div className="space-y-3 text-sm">
-                    <BoundaryLine label="服务目录" value="contracts/servicecatalog" />
+                    <BoundaryLine
+                      label="服务目录"
+                      value="contracts/servicecatalog"
+                    />
                     <BoundaryLine label="服务地址" value="Kubernetes DNS" />
                     <BoundaryLine label="健康语义" value="gRPC Health" />
                     <BoundaryLine label="调试发现" value="gRPC Reflection" />
@@ -498,7 +549,19 @@ function Dashboard() {
                 <section>
                   <div className="mb-3 text-sm font-medium">当前账号</div>
                   {selectedAccount ? (
-                    <AccountSummary account={selectedAccount} compact />
+                    <div className="space-y-3">
+                      <AccountSummary account={selectedAccount} compact />
+                      <div className="space-y-2 text-sm">
+                        <BoundaryLine
+                          label="账号来源"
+                          value={selectedAccountSource?.displayName ?? "未注册"}
+                        />
+                        <BoundaryLine
+                          label="来源服务"
+                          value={selectedAccount.labels.owner_service || "-"}
+                        />
+                      </div>
+                    </div>
                   ) : (
                     <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
                       暂无账号
@@ -600,6 +663,42 @@ function ServiceNavButton({
   )
 }
 
+function AccountScopeFilter({
+  scopes,
+  value,
+  onChange,
+}: {
+  scopes: AccountScope[]
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button
+        aria-pressed={value === "all"}
+        size="sm"
+        type="button"
+        variant={value === "all" ? "default" : "outline"}
+        onClick={() => onChange("all")}
+      >
+        全部来源
+      </Button>
+      {scopes.map((scope) => (
+        <Button
+          key={scope.serviceId}
+          aria-pressed={value === scope.serviceId}
+          size="sm"
+          type="button"
+          variant={value === scope.serviceId ? "default" : "outline"}
+          onClick={() => onChange(scope.serviceId)}
+        >
+          {scope.displayName}
+        </Button>
+      ))}
+    </div>
+  )
+}
+
 function Metric({
   label,
   value,
@@ -675,6 +774,15 @@ function HealthDot({ state }: { state: ServiceHealthStatus }) {
       aria-hidden="true"
     />
   )
+}
+
+function isAccountCapability(capability: CatalogCapability) {
+  return [
+    capability.capabilityId,
+    capability.invocationRef,
+    capability.inputContract?.contractRef ?? "",
+    capability.outputContract?.contractRef ?? "",
+  ].some((value) => value.toLowerCase().includes("account"))
 }
 
 function capabilityKindLabel(kind: CapabilityKind) {
