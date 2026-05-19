@@ -33,6 +33,7 @@ export type Mailbox = {
   refresh_token: string;
   access_token: string;
   auth_status: string;
+  provider: string;
   last_error: string;
   is_primary: boolean;
   primary_email: string;

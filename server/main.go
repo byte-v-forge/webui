@@ -51,6 +51,7 @@ type upsertMailboxRequest struct {
 	Password     string `json:"password"`
 	RefreshToken string `json:"refresh_token"`
 	AccessToken  string `json:"access_token"`
+	Provider     string `json:"provider"`
 	Status       string `json:"status"`
 	AuthStatus   string `json:"auth_status"`
 	LastError    string `json:"last_error"`
@@ -207,9 +208,14 @@ func (s *server) handleMailboxes(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		limit := int32(queryInt(r, "limit", 100))
+		authStatus := strings.TrimSpace(r.URL.Query().Get("auth_status"))
+		if authStatus == "" {
+			authStatus = strings.TrimSpace(r.URL.Query().Get("status"))
+		}
 		resp, err := s.mailboxClient.ListMailboxes(r.Context(), &pb.ListEmailMailboxesRequest{
-			Status: r.URL.Query().Get("status"),
-			Limit:  limit,
+			AuthStatus: authStatus,
+			Provider:   strings.TrimSpace(r.URL.Query().Get("provider")),
+			Limit:      limit,
 		})
 		if err != nil {
 			writeError(w, http.StatusBadGateway, err)
@@ -231,6 +237,7 @@ func (s *server) handleMailboxes(w http.ResponseWriter, r *http.Request) {
 			Password:     req.Password,
 			RefreshToken: req.RefreshToken,
 			AccessToken:  req.AccessToken,
+			Provider:     strings.TrimSpace(req.Provider),
 			AuthStatus:   req.AuthStatus,
 			LastError:    req.LastError,
 			IsPrimary:    true,
