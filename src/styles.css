@@ -644,10 +644,6 @@ input, select {
   flex-direction: column;
 }
 
-.mailboxWorkflowTab {
-  gap: 12px;
-}
-
 .workflowTabToolbar {
   display: flex;
   align-items: center;

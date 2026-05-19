@@ -189,7 +189,7 @@ const GO_PAY_ADD_BALANCE_METHODS: ConcreteGoPayAddBalanceMethod[] = ['manual_tra
 
 type Toast = { kind: 'ok' | 'error'; text: string } | null;
 type ViewKey = 'accounts' | 'gopay' | 'mailboxes' | 'jobs';
-type WorkflowTab = 'all' | 'gpt' | 'gopay' | 'mailbox';
+type WorkflowTab = 'all' | 'gpt' | 'gopay';
 type MailboxDetailTab = 'overview' | 'aliases' | 'inbox';
 type DisplayLabelMap = Record<string, string>;
 type PanelState = { loading: boolean; error: string };
@@ -247,14 +247,11 @@ const actionLabels: DisplayLabelMap = {
   GOPAY_PAYMENT: 'GoPay 支付',
   GOPAY_PAYMENT_REBIND: 'GoPay 支付换绑',
   REGISTER_AND_ACTIVATE: '注册并激活',
-  PROBE_ACCOUNT: '探测账号',
-  REGISTER_MAILBOX: '注册 Outlook 邮箱',
-  MAILBOX_OAUTH: 'Microsoft OAuth'
+  PROBE_ACCOUNT: '探测账号'
 };
 
 const gptWorkflowActions = new Set(['REGISTER', 'LOGIN_SESSION', 'ACTIVATE', 'AUTOPAY', 'REGISTER_AND_ACTIVATE', 'PROBE_ACCOUNT']);
 const gopayWorkflowActions = new Set(['GOPAY_APP', 'GOPAY_PAYMENT', 'GOPAY_PAYMENT_REBIND']);
-const mailboxWorkflowActions = new Set(['REGISTER_MAILBOX', 'MAILBOX_OAUTH']);
 
 const stepLabels: DisplayLabelMap = {
   register_account: '注册账号',
@@ -328,10 +325,6 @@ function App() {
   const runningJobCount = runningJobs.length;
   const runningAccountIds = new Set(runningJobs.filter((job) => job.account_id).map((job) => job.account_id));
   const runningJobByAccountID = latestJobMap(runningJobs.filter((job) => job.account_id), (job) => job.account_id);
-  const runningMailboxJobByEmail = latestJobMap(
-    runningJobs.filter((job) => mailboxWorkflowEmail(job)),
-    (job) => mailboxWorkflowEmail(job)
-  );
   const selectedJob = selectedJobSnapshot?.job || null;
   const selectedJobProgress = selectedJobSnapshot?.progress || null;
   const selectedJobID = selectedJob?.job_id || '';
@@ -808,18 +801,12 @@ function App() {
   const gptWorkflowJobs = jobs.filter((job) => gptWorkflowActions.has(job.action));
   const gopayWorkflowJobs = jobs.filter((job) => gopayWorkflowActions.has(job.action));
   const goPayRebindJobs = gopayWorkflowJobs.filter((job) => job.action === 'GOPAY_PAYMENT_REBIND');
-  const mailboxWorkflowJobs = jobs.filter((job) => mailboxWorkflowActions.has(job.action));
-  const mailboxRegisterJobs = mailboxWorkflowJobs.filter((job) => job.action === 'REGISTER_MAILBOX');
-  const runningMailboxRegisterCount = runningJobs.filter((job) => job.action === 'REGISTER_MAILBOX').length;
   const runningGoPayRebindCount = runningJobs.filter((job) => job.action === 'GOPAY_PAYMENT_REBIND').length;
   const jobsForWorkflowTab = workflowTab === 'gpt'
     ? gptWorkflowJobs
     : workflowTab === 'gopay'
       ? gopayWorkflowJobs
-      : workflowTab === 'mailbox'
-        ? mailboxWorkflowJobs
-        : jobs;
-  const latestMailboxRegisterJob = mailboxRegisterJobs[0];
+      : jobs;
   const latestGoPayRebindJob = goPayRebindJobs[0];
   const panelState: PanelState = {
     loading: busy && accounts.length === 0 && jobs.length === 0 && mailboxes.length === 0,
@@ -939,6 +926,9 @@ function App() {
               <div className="panel mailboxesPanel">
                 <PanelHeader title="邮箱管理" icon={<Mail size={16} />}>
                   <div className="headerControls">
+                    <Button className="primaryButton" onClick={startMailboxRegistration} disabled={busy || mailboxRegistering}>
+                      <Play size={16} /> {mailboxRegistering ? '启动中' : '注册邮箱'}
+                    </Button>
                     <Button className="secondaryButton" onClick={() => runMailboxOAuth()} disabled={busy || !!mailboxOAuthing || missingOAuthCount === 0}>
                       <KeyRound size={16} /> 补 OAuth {missingOAuthCount > 0 ? `(${missingOAuthCount})` : ''}
                     </Button>
@@ -962,9 +952,7 @@ function App() {
                   busy={busy}
                   showSecrets={showSecrets}
                   oauthing={mailboxOAuthing}
-                  runningWorkflowByEmail={runningMailboxJobByEmail}
                   onSelect={selectMailbox}
-                  onOpenWorkflow={selectJob}
                   onOAuth={runMailboxOAuth}
                   onDelete={deleteMailbox}
                   onDone={async (message) => {
@@ -990,7 +978,6 @@ function App() {
                     <TabsTrigger value="all">全部 {jobs.length}</TabsTrigger>
                     <TabsTrigger value="gpt">GPT账号 {gptWorkflowJobs.length}</TabsTrigger>
                     <TabsTrigger value="gopay">GoPay {gopayWorkflowJobs.length}</TabsTrigger>
-                    <TabsTrigger value="mailbox">邮箱 {mailboxWorkflowJobs.length}</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="all" className="workflowTabContent">
@@ -1003,24 +990,6 @@ function App() {
 
                   <TabsContent value="gopay" className="workflowTabContent">
                     <JobTable jobs={jobsForWorkflowTab} selected={selectedJob?.job_id} emptyText="暂无 GoPay 工作流" onSelect={selectJob} onGoPayRebindRetry={retryGoPayPaymentRebind} />
-                  </TabsContent>
-
-                  <TabsContent value="mailbox" className="workflowTabContent mailboxWorkflowTab">
-                    <div className="workflowTabToolbar">
-                      <WorkflowSummary
-                        job={latestMailboxRegisterJob}
-                        runningCount={runningMailboxRegisterCount}
-                        runningTitle={(count) => `${count} 个邮箱注册任务运行中`}
-                        runningText="邮箱注册器同一时间只跑一个进程。"
-                        idleTitle="暂无邮箱注册任务"
-                        idleText="还没有启动过邮箱注册。"
-                      />
-                      <Button className="primaryButton" onClick={startMailboxRegistration} disabled={busy || mailboxRegistering}>
-                        <Play size={16} /> {mailboxRegistering ? '启动中' : '启动注册'}
-                      </Button>
-                    </div>
-                    <MailboxStatusStrip mailboxes={primaryMailboxes} allocations={gptEmailAllocations} />
-                    <JobTable jobs={jobsForWorkflowTab} selected={selectedJob?.job_id} emptyText="暂无邮箱工作流" onSelect={selectJob} onGoPayRebindRetry={retryGoPayPaymentRebind} />
                   </TabsContent>
                 </Tabs>
               </div>
@@ -1838,7 +1807,7 @@ function GoPayRebindRowButton({ job, onRetry }: { job: Job; onRetry: (job: Job) 
   );
 }
 
-function MailboxPanel({ mailboxes, allMailboxes, allocations, selected, busy, showSecrets, oauthing, runningWorkflowByEmail, onSelect, onOpenWorkflow, onOAuth, onDelete, onDone, onError }: {
+function MailboxPanel({ mailboxes, allMailboxes, allocations, selected, busy, showSecrets, oauthing, onSelect, onOAuth, onDelete, onDone, onError }: {
   mailboxes: Mailbox[];
   allMailboxes: Mailbox[];
   allocations: GPTEmailAllocation[];
@@ -1846,9 +1815,7 @@ function MailboxPanel({ mailboxes, allMailboxes, allocations, selected, busy, sh
   busy: boolean;
   showSecrets: boolean;
   oauthing: string;
-  runningWorkflowByEmail: Map<string, Job>;
   onSelect: (mailbox: Mailbox) => void;
-  onOpenWorkflow: (job: Job) => void;
   onOAuth: (emailAddress?: string) => Promise<void>;
   onDelete: (mailbox: Mailbox) => Promise<void>;
   onDone: (message: string) => void;
@@ -1913,7 +1880,6 @@ function MailboxPanel({ mailboxes, allMailboxes, allocations, selected, busy, sh
               const isOAuthing = oauthing === mailbox.email_address || oauthing === '*';
               const canOAuth = mailbox.is_primary && !!mailbox.password;
               const oauthLabel = authStatus(mailbox) === 'AUTHORIZED' ? '重新 OAuth' : '补 OAuth';
-              const currentWorkflow = runningWorkflowByEmail.get(normalizeUiEmail(mailbox.email_address));
               const allocation = allocationForEmail(allocations, mailbox.email_address);
               const usageStatus = allocation?.status || '-';
               const errorText = allocation?.last_error || mailbox.last_error || '-';
@@ -1935,9 +1901,7 @@ function MailboxPanel({ mailboxes, allMailboxes, allocations, selected, busy, sh
                   </TableCell>
                   <TableCell data-label="操作">
                     <div className="rowActions" onClick={(event) => event.stopPropagation()}>
-                      {currentWorkflow ? (
-                        <LinkedWorkflowButton job={currentWorkflow} onOpen={onOpenWorkflow} />
-                      ) : canOAuth ? (
+                      {canOAuth ? (
                         <Button className="rowButtonText" {...buttonHint(isOAuthing ? 'OAuth 提交中' : `${oauthLabel}：${showSecrets ? mailbox.email_address : maskEmail(mailbox.email_address)}`)} disabled={busy || !!oauthing} onClick={() => onOAuth(mailbox.email_address)}>
                           <KeyRound size={14} /> {isOAuthing ? '提交中' : oauthLabel}
                         </Button>
@@ -3023,20 +2987,6 @@ function latestJobMap(jobs: Job[], keyOf: (job: Job) => string) {
     }
   }
   return map;
-}
-
-function mailboxWorkflowEmail(job: Job) {
-  if (job.action !== 'MAILBOX_OAUTH') return '';
-  const candidates = [objectValue(job.result)];
-  for (const step of job.steps || []) {
-    const detail = stepDetailData(step);
-    if (detail) candidates.push(detail);
-  }
-  for (const data of candidates) {
-    const email = normalizeUiEmail(stringValue(data.email_address));
-    if (email) return email;
-  }
-  return '';
 }
 
 async function copyText(value: string): Promise<boolean> {
