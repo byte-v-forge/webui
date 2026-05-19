@@ -132,7 +132,7 @@ type GPTEmailAllocation = {
 
 type MailboxOAuthResponse = {
   started: boolean;
-  job_id: string;
+  operation_id: string;
   error_message: string;
 };
 
@@ -153,25 +153,12 @@ type InboxResult = {
   error_message?: string;
 };
 
-type BanDetection = {
-  account_id: string;
-  email_address: string;
-  mailbox_email: string;
-  from_address: string;
-  subject: string;
-  received_at_unix: number;
-  account_updated: boolean;
-  error_message: string;
-};
-
 type InboxResponse = {
   results?: InboxResult[];
   mailbox_count: number;
   fetched_count: number;
   failed_count: number;
   message_count: number;
-  bans?: BanDetection[];
-  ban_count: number;
 };
 
 type GoPayDashboardStateResponse = GoPayUserStatusResponse & {
@@ -596,7 +583,7 @@ function App() {
       if (!resp.started || resp.error_message) {
         setToast({ kind: 'error', text: resp.error_message || 'OAuth 流程启动失败' });
       } else {
-        setToast({ kind: 'ok', text: `OAuth 流程已提交: ${short(resp.job_id)}` });
+        setToast({ kind: 'ok', text: `OAuth 流程已提交: ${short(resp.operation_id)}` });
       }
       await refresh();
     } catch (err) {
@@ -620,13 +607,12 @@ function App() {
       });
       setInboxResponse(resp);
       const kind = resp.failed_count > 0 ? 'error' : 'ok';
-      const banText = resp.ban_count > 0 ? `，封禁 ${resp.ban_count}` : '';
       const scope = targetEmail ? `${showSecrets ? targetEmail : maskEmail(targetEmail)} ` : '';
       const latestOtp = targetEmail ? latestOtpForEmail(resp, mailboxes, targetEmail) : null;
       const otpText = latestOtp
         ? `，OTP ${showSecrets ? latestOtp.otp : mask(latestOtp.otp)}，${formatUnix(latestOtp.received_at_unix)}`
         : '';
-      setToast({ kind, text: `${scope}收信完成：${resp.fetched_count}/${resp.mailbox_count} 个邮箱，${resp.message_count} 封邮件${otpText}${banText}` });
+      setToast({ kind, text: `${scope}收信完成：${resp.fetched_count}/${resp.mailbox_count} 个邮箱，${resp.message_count} 封邮件${otpText}` });
       await refresh();
     } catch (err) {
       setToast({ kind: 'error', text: errorText(err) });
@@ -815,7 +801,6 @@ function App() {
   )).length;
   const oauthMailboxCount = primaryMailboxes.filter((mailbox) => authStatus(mailbox) === 'AUTHORIZED').length;
   const selectedMailboxInbox = selectedMailbox ? inboxResultForMailbox(inboxResponse, selectedMailbox.email_address) : undefined;
-  const selectedMailboxBans = selectedMailbox ? bansForMailbox(inboxResponse, selectedMailbox.email_address) : [];
   const selectedMailboxAliases = selectedMailbox ? aliasesForMailbox(mailboxes, selectedMailbox) : [];
   const selectedMailboxAllocation = selectedMailbox ? allocationForEmail(gptEmailAllocations, selectedMailbox.email_address) : undefined;
   const selectedAccountMailboxContext = selectedAccount ? mailboxContextForEmail(mailboxes, gptEmailAllocations, selectedAccount.email) : null;
@@ -1089,7 +1074,6 @@ function App() {
             mailbox={selectedMailbox}
             showSecrets={showSecrets}
             inboxResult={selectedMailboxInbox}
-            bans={selectedMailboxBans}
             aliases={selectedMailboxAliases}
             allocation={selectedMailboxAllocation}
             allocations={gptEmailAllocations}
@@ -1975,10 +1959,9 @@ function MailboxPanel({ mailboxes, allMailboxes, allocations, selected, busy, sh
   );
 }
 
-function MailboxInboxSection({ mailbox, result, bans, showSecrets, loading, onFetch }: {
+function MailboxInboxSection({ mailbox, result, showSecrets, loading, onFetch }: {
   mailbox: Mailbox;
   result?: InboxResult;
-  bans: BanDetection[];
   showSecrets: boolean;
   loading: boolean;
   onFetch: (emailAddress?: string) => Promise<void>;
@@ -1993,7 +1976,6 @@ function MailboxInboxSection({ mailbox, result, bans, showSecrets, loading, onFe
         </Button>
       </div>
       {result?.error_message && <div className="inboxError">{compactToast(result.error_message)}</div>}
-      {!!bans.length && <BanResults bans={bans} showSecrets={showSecrets} />}
       <div className="drawerInboxList">
         {messages.map((message, index) => (
           <article className="inboxMessage" key={`${message.mailbox_email}-${message.id || index}`}>
@@ -2042,22 +2024,6 @@ function MailboxActivityCell({ mailbox, showSecrets }: {
     <div className="mailActivity">
       <LatestOtpLine mailbox={mailbox} showSecrets={showSecrets} />
       <small title={subject}>{subject}</small>
-    </div>
-  );
-}
-
-function BanResults({ bans, showSecrets }: {
-  bans: BanDetection[];
-  showSecrets: boolean;
-}) {
-  return (
-    <div className="banStrip">
-      {bans.map((ban, index) => (
-        <div key={`${ban.email_address}-${ban.account_id}-${index}`}>
-          <strong>{showSecrets ? ban.email_address : maskEmail(ban.email_address)}</strong>
-          <span>{ban.account_updated ? '已标记 DEACTIVATED' : (ban.error_message || '未更新')}</span>
-        </div>
-      ))}
     </div>
   );
 }
@@ -2240,13 +2206,12 @@ function MailboxAliasesSection({ aliases, allocations, showSecrets, onDelete }: 
   );
 }
 
-function MailboxDetails({ mailbox, allocation, allocations, showSecrets, inboxResult, bans, aliases, inboxLoading, onCopy, onFetchInbox, onDelete }: {
+function MailboxDetails({ mailbox, allocation, allocations, showSecrets, inboxResult, aliases, inboxLoading, onCopy, onFetchInbox, onDelete }: {
   mailbox: Mailbox;
   allocation?: GPTEmailAllocation;
   allocations: GPTEmailAllocation[];
   showSecrets: boolean;
   inboxResult?: InboxResult;
-  bans: BanDetection[];
   aliases: Mailbox[];
   inboxLoading: boolean;
   onCopy: (label: string, value: string) => void;
@@ -2323,7 +2288,6 @@ function MailboxDetails({ mailbox, allocation, allocations, showSecrets, inboxRe
           <MailboxInboxSection
             mailbox={mailbox}
             result={inboxResult}
-            bans={bans}
             showSecrets={showSecrets}
             loading={inboxLoading}
             onFetch={onFetchInbox}
@@ -2887,15 +2851,6 @@ function accountInboxHint(email: string, context: AccountMailboxContext | null, 
     return `用主邮箱 ${primaryEmail} 拉取收件箱，按分裂邮箱 ${accountEmail} 匹配 OTP`;
   }
   return `拉取当前账号邮箱 ${accountEmail} 的最新 OTP`;
-}
-
-function bansForMailbox(response: InboxResponse | null, email: string) {
-  const target = normalizeUiEmail(email);
-  if (!response || !target) return [];
-  return (response.bans || []).filter((ban) => (
-    normalizeUiEmail(ban.mailbox_email) === target ||
-    normalizeUiEmail(ban.email_address) === target
-  ));
 }
 
 function aliasesForMailbox(mailboxes: Mailbox[], mailbox: Mailbox) {
