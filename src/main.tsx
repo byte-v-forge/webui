@@ -250,13 +250,14 @@ const actionLabels: DisplayLabelMap = {
   AUTOPAY: '自动支付',
   GOPAY_APP: 'GoPay App',
   GOPAY_PAYMENT: 'GoPay 支付',
+  GOPAY_WA_PAYMENT: 'Gopay-WA支付',
   GOPAY_PAYMENT_REBIND: 'GoPay 支付换绑',
   REGISTER_AND_ACTIVATE: '注册并激活',
   PROBE_ACCOUNT: '探测账号'
 };
 
 const gptWorkflowActions = new Set(['REGISTER', 'LOGIN_SESSION', 'ACTIVATE', 'AUTOPAY', 'REGISTER_AND_ACTIVATE', 'PROBE_ACCOUNT']);
-const gopayWorkflowActions = new Set(['GOPAY_APP', 'GOPAY_PAYMENT', 'GOPAY_PAYMENT_REBIND']);
+const gopayWorkflowActions = new Set(['GOPAY_APP', 'GOPAY_PAYMENT', 'GOPAY_WA_PAYMENT', 'GOPAY_PAYMENT_REBIND']);
 const mailboxOperationActionLabels: DisplayLabelMap = {
   REGISTER_MAILBOX: '注册邮箱',
   MAILBOX_OAUTH: '邮箱 OAuth',
@@ -460,6 +461,31 @@ function App() {
         setToast({ kind: 'error', text: resp.error_message });
       } else {
         setToast({ kind: 'ok', text: `${goPayPaymentChannelLabel(otpChannel)} 支付已提交: ${resp.job_id || 'ok'}` });
+        await refresh();
+      }
+    } catch (err) {
+      setToast({ kind: 'error', text: errorText(err) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runGoPayWAPaymentOnly(account: Account) {
+    setBusy(true);
+    try {
+      const payload: Record<string, any> = {
+        user_id: 'local'
+      };
+      if (account.account_id) payload.account_id = account.account_id;
+      else if (account.access_token) payload.access_token = account.access_token;
+      const resp = await api<any>('/api/workflows/gopay-wa-payment', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      if (resp.error_message) {
+        setToast({ kind: 'error', text: resp.error_message });
+      } else {
+        setToast({ kind: 'ok', text: `Gopay-WA支付已提交: ${resp.job_id || 'ok'}` });
         await refresh();
       }
     } catch (err) {
@@ -905,6 +931,7 @@ function App() {
                   onRegister={(account) => runAccountWorkflow('注册账号', '/api/workflows/register', account)}
                   onLogin={(account) => runAccountWorkflow(loginActionLabel(account), '/api/workflows/login', account)}
                   onGoPayPayment={(account, channel) => void runGoPayPayment(account, channel)}
+                  onGoPayWAPaymentOnly={(account) => void runGoPayWAPaymentOnly(account)}
                   onProbeAccount={(account) => runAccountWorkflow('探测账号', '/api/workflows/probe', account)}
                   onRegisterActivate={(account) => runAccountWorkflow('注册并激活', '/api/workflows/register-and-activate', account)}
                   onRefreshAccessToken={refreshAccountAccessToken}
@@ -1594,7 +1621,7 @@ function TransferQRCode({ payload }: { payload: string }) {
   );
 }
 
-function AccountTable({ accounts, jobs, selected, showSecrets, runningAccountIds, runningWorkflowByAccountID, refreshingAccessTokenIds, busy, onSelect, onOpenWorkflow, onRegister, onLogin, onGoPayPayment, onProbeAccount, onRegisterActivate, onRefreshAccessToken, onDelete }: {
+function AccountTable({ accounts, jobs, selected, showSecrets, runningAccountIds, runningWorkflowByAccountID, refreshingAccessTokenIds, busy, onSelect, onOpenWorkflow, onRegister, onLogin, onGoPayPayment, onGoPayWAPaymentOnly, onProbeAccount, onRegisterActivate, onRefreshAccessToken, onDelete }: {
   accounts: Account[];
   jobs: Job[];
   selected?: string;
@@ -1608,6 +1635,7 @@ function AccountTable({ accounts, jobs, selected, showSecrets, runningAccountIds
   onRegister: (a: Account) => void;
   onLogin: (a: Account) => void;
   onGoPayPayment: (a: Account, channel: ConcreteGoPayPaymentChannel) => void;
+  onGoPayWAPaymentOnly: (a: Account) => void;
   onProbeAccount: (a: Account) => void;
   onRegisterActivate: (a: Account) => void;
   onRefreshAccessToken: (a: Account) => Promise<void>;
@@ -1665,6 +1693,7 @@ function AccountTable({ accounts, jobs, selected, showSecrets, runningAccountIds
                     onRegister={onRegister}
                     onLogin={onLogin}
                     onGoPayPayment={onGoPayPayment}
+                    onGoPayWAPaymentOnly={onGoPayWAPaymentOnly}
                     onProbeAccount={onProbeAccount}
                     onRegisterActivate={onRegisterActivate}
                     onRefreshAccessToken={onRefreshAccessToken}
@@ -1680,7 +1709,7 @@ function AccountTable({ accounts, jobs, selected, showSecrets, runningAccountIds
   );
 }
 
-function AccountRowActions({ account, accountBusy, currentWorkflow, busy, refreshingAccessToken, onOpenWorkflow, onRegister, onLogin, onGoPayPayment, onProbeAccount, onRegisterActivate, onRefreshAccessToken, onDelete }: {
+function AccountRowActions({ account, accountBusy, currentWorkflow, busy, refreshingAccessToken, onOpenWorkflow, onRegister, onLogin, onGoPayPayment, onGoPayWAPaymentOnly, onProbeAccount, onRegisterActivate, onRefreshAccessToken, onDelete }: {
   account: Account;
   accountBusy: boolean;
   currentWorkflow?: Job;
@@ -1690,6 +1719,7 @@ function AccountRowActions({ account, accountBusy, currentWorkflow, busy, refres
   onRegister: (a: Account) => void;
   onLogin: (a: Account) => void;
   onGoPayPayment: (a: Account, channel: ConcreteGoPayPaymentChannel) => void;
+  onGoPayWAPaymentOnly: (a: Account) => void;
   onProbeAccount: (a: Account) => void;
   onRegisterActivate: (a: Account) => void;
   onRefreshAccessToken: (a: Account) => Promise<void>;
@@ -1720,6 +1750,15 @@ function AccountRowActions({ account, accountBusy, currentWorkflow, busy, refres
       kind: 'secondary' as const
     }))
     : [];
+  if (canGoPayPayment(account)) {
+    paymentActions.push({
+      label: 'Gopay-WA支付',
+      icon: <WalletCards size={14} />,
+      onClick: () => onGoPayWAPaymentOnly(account),
+      disabled: busy,
+      kind: 'secondary'
+    });
+  }
 
   const primary = actions.find((action) => action.kind === 'primary' && !action.disabled) ||
     actions.find((action) => !action.disabled) ||
@@ -2613,7 +2652,7 @@ function accountActivationChannel(account: Account, jobs: Job[]) {
   const latestPaymentJob = jobs
     .filter((job) =>
       job.account_id === account.account_id &&
-      (job.action === 'GOPAY_PAYMENT' || job.action === 'ACTIVATE' || job.action === 'AUTOPAY' || job.action === 'REGISTER_AND_ACTIVATE')
+      (job.action === 'GOPAY_PAYMENT' || job.action === 'GOPAY_WA_PAYMENT' || job.action === 'ACTIVATE' || job.action === 'AUTOPAY' || job.action === 'REGISTER_AND_ACTIVATE')
     )
     .sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0))[0];
   if (!latestPaymentJob) return '-';
@@ -2722,7 +2761,7 @@ function isUserAlreadyExistsAccount(account: Account) {
 }
 
 function canSubmitOtp(job: Job) {
-  return job.status === 'RUNNING' && (job.action === 'REGISTER' || job.action === 'LOGIN_SESSION' || job.action === 'ACTIVATE' || job.action === 'AUTOPAY' || job.action === 'GOPAY_APP' || job.action === 'GOPAY_PAYMENT' || job.action === 'GOPAY_PAYMENT_REBIND' || job.action === 'REGISTER_AND_ACTIVATE');
+  return job.status === 'RUNNING' && (job.action === 'REGISTER' || job.action === 'LOGIN_SESSION' || job.action === 'ACTIVATE' || job.action === 'AUTOPAY' || job.action === 'GOPAY_APP' || job.action === 'GOPAY_PAYMENT' || job.action === 'GOPAY_WA_PAYMENT' || job.action === 'GOPAY_PAYMENT_REBIND' || job.action === 'REGISTER_AND_ACTIVATE');
 }
 
 function manualAddBalanceView(job: Job) {
@@ -2781,7 +2820,7 @@ function stepResultData(job: Job, stepName: string): any | null {
 
 function otpSubmitLabel(job: Job) {
   if (job.action === 'LOGIN_SESSION') return '登录 OTP';
-  if (job.action === 'GOPAY_APP' || job.action === 'GOPAY_PAYMENT' || job.action === 'GOPAY_PAYMENT_REBIND') return 'GoPay OTP';
+  if (job.action === 'GOPAY_APP' || job.action === 'GOPAY_PAYMENT' || job.action === 'GOPAY_WA_PAYMENT' || job.action === 'GOPAY_PAYMENT_REBIND') return 'GoPay OTP';
   if (job.action === 'ACTIVATE' || job.action === 'AUTOPAY' || (job.action === 'REGISTER_AND_ACTIVATE' && (job.last_step === 'gopay_login' || job.last_step === 'gopay_payment'))) {
     return '支付 OTP';
   }
