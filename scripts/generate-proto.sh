@@ -26,13 +26,20 @@ PROTOS=(
   "${ORCHESTRATOR_PROTOS[@]}"
 )
 
-protoc -I "${ROOT}/proto" \
+PROTO_INCLUDES=("-I" "${ROOT}/proto")
+if [[ -d /usr/include/google/protobuf ]]; then
+  PROTO_INCLUDES+=("-I" "/usr/include")
+fi
+
+protoc "${PROTO_INCLUDES[@]}" \
   --plugin="protoc-gen-ts_proto=${PLUGIN}" \
   --ts_proto_out="${OUT_DIR}" \
   --ts_proto_opt=onlyTypes=true,outputServices=none,esModuleInterop=true,useJsonWireFormat=true,snakeToCamel=false \
   "${PROTOS[@]}"
 
-protoc -I "${ROOT}/proto" \
-  --go_out="${GO_OUT_DIR}" \
-  --go-grpc_out="${GO_OUT_DIR}" \
-  "${PROTOS[@]}"
+if [[ "${GENERATE_GO_PROTO:-true}" != "false" ]]; then
+  protoc "${PROTO_INCLUDES[@]}" \
+    --go_out="${GO_OUT_DIR}" \
+    --go-grpc_out="${GO_OUT_DIR}" \
+    "${PROTOS[@]}"
+fi
