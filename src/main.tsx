@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import type { MailboxOperation } from './proto/mailbox_service';
 import type { GoPayUserStatusResponse } from './proto/orchestrator_gopay_app';
 import type { Job, JobEvent, JobSnapshot, JobStep as Step, WorkflowProgress } from './proto/orchestrator_job';
 import './styles.css';
@@ -218,8 +219,10 @@ const accountStatusLabels: DisplayLabelMap = {
 };
 
 const jobStatusLabels: DisplayLabelMap = {
+  CREATED: '已创建',
   RUNNING: '运行中',
   SUCCEEDED: '成功',
+  FAILED: '失败',
   FAILED_RETRYABLE: '失败',
   FAILED_RECOVERABLE: '失败，需处理',
   FAILED_FINAL: '最终失败'
@@ -252,6 +255,11 @@ const actionLabels: DisplayLabelMap = {
 
 const gptWorkflowActions = new Set(['REGISTER', 'LOGIN_SESSION', 'ACTIVATE', 'AUTOPAY', 'REGISTER_AND_ACTIVATE', 'PROBE_ACCOUNT']);
 const gopayWorkflowActions = new Set(['GOPAY_APP', 'GOPAY_PAYMENT', 'GOPAY_PAYMENT_REBIND']);
+const mailboxOperationActionLabels: DisplayLabelMap = {
+  REGISTER_MAILBOX: '注册邮箱',
+  MAILBOX_OAUTH: '邮箱 OAuth',
+  FETCH_INBOXES: '拉取收件箱'
+};
 
 const stepLabels: DisplayLabelMap = {
   register_account: '注册账号',
@@ -298,6 +306,7 @@ function App() {
   const [jobSnapshots, setJobSnapshots] = useState<JobSnapshot[]>([]);
   const [runningJobSnapshots, setRunningJobSnapshots] = useState<JobSnapshot[]>([]);
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
+  const [mailboxOperations, setMailboxOperations] = useState<MailboxOperation[]>([]);
   const [gptEmailAllocations, setGptEmailAllocations] = useState<GPTEmailAllocation[]>([]);
   const [activeView, setActiveView] = useState<ViewKey>('accounts');
   const [workflowTab, setWorkflowTab] = useState<WorkflowTab>('all');
@@ -350,12 +359,13 @@ function App() {
   async function refresh() {
     setBusy(true);
     try {
-      const [accountsData, jobsData, mailboxesData, allocationsData, runningJobsData] = await Promise.all([
+      const [accountsData, jobsData, mailboxesData, allocationsData, runningJobsData, mailboxOperationsData] = await Promise.all([
         api<Account[]>(`/api/accounts?limit=200${accountStatus ? `&status=${accountStatus}` : ''}`),
         api<JobSnapshot[]>(`/api/jobs?limit=200${jobStatus ? `&status=${jobStatus}` : ''}`),
         api<Mailbox[]>('/api/mailboxes?limit=500'),
         api<GPTEmailAllocation[]>('/api/gpt-email-allocations?limit=500'),
-        api<JobSnapshot[]>('/api/jobs?limit=200&status=RUNNING')
+        api<JobSnapshot[]>('/api/jobs?limit=200&status=RUNNING'),
+        api<MailboxOperation[]>('/api/mailbox-operations?limit=20')
       ]);
       setAccounts(Array.isArray(accountsData) ? accountsData : []);
       setJobSnapshots(Array.isArray(jobsData) ? jobsData : []);
@@ -363,6 +373,7 @@ function App() {
       const nextMailboxes = Array.isArray(mailboxesData) ? mailboxesData : [];
       setMailboxes(nextMailboxes);
       setGptEmailAllocations(Array.isArray(allocationsData) ? allocationsData : []);
+      setMailboxOperations(Array.isArray(mailboxOperationsData) ? mailboxOperationsData : []);
       if (selectedJob) {
         await refreshSelectedJob(selectedJob.job_id);
       }
@@ -944,6 +955,7 @@ function App() {
                     </NativeSelect>
                   </div>
                 </PanelHeader>
+                <MailboxOperationStrip operations={mailboxOperations} showSecrets={showSecrets} />
                 <MailboxPanel
                   mailboxes={visiblePrimaryMailboxes}
                   allMailboxes={primaryMailboxes}
@@ -1992,6 +2004,29 @@ function MailboxActivityCell({ mailbox, showSecrets }: {
   );
 }
 
+function MailboxOperationStrip({ operations, showSecrets }: {
+  operations: MailboxOperation[];
+  showSecrets: boolean;
+}) {
+  const recent = operations.slice(0, 4);
+  if (recent.length === 0) return null;
+  return (
+    <div className="mailboxOperationStrip">
+      {recent.map((operation) => (
+        <div className="mailboxOperationItem" key={operation.operation_id}>
+          <div>
+            <strong>{mailboxOperationActionText(operation.action)}</strong>
+            <span>{statusText(operation.status)} · {stepText(operation.last_step)} · {formatUnix(operation.updated_at)}</span>
+          </div>
+          <small title={operation.error_message || mailboxOperationMeta(operation, true)}>
+            {mailboxOperationMeta(operation, showSecrets)}
+          </small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function WorkflowSummary({ job, runningCount, runningTitle, runningText, idleTitle, idleText }: {
   job?: Job;
   runningCount: number;
@@ -2499,6 +2534,30 @@ function tokenText(mailbox: Mailbox) {
 
 function actionText(action: string) {
   return actionLabels[action] || action || '-';
+}
+
+function mailboxOperationActionText(action: string) {
+  return mailboxOperationActionLabels[action] || action || '-';
+}
+
+function mailboxOperationMeta(operation: MailboxOperation, showSecrets: boolean) {
+  const parts: string[] = [];
+  if (operation.email_address) {
+    parts.push(showSecrets ? operation.email_address : maskEmail(operation.email_address));
+  }
+  if (operation.mailbox_count) {
+    parts.push(`${operation.mailbox_count} 个邮箱`);
+  }
+  if (operation.fetched_count || operation.failed_count) {
+    parts.push(`成功 ${operation.fetched_count} / 失败 ${operation.failed_count}`);
+  }
+  if (operation.message_count) {
+    parts.push(`${operation.message_count} 封邮件`);
+  }
+  if (operation.error_message) {
+    parts.push(compactCellError(operation.error_message));
+  }
+  return parts.join(' · ') || '-';
 }
 
 function stepText(step: string) {
