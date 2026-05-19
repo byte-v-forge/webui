@@ -7,21 +7,21 @@
 
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #17202a;
-  background: #eef2f7;
-  --text: #17202a;
+  color: #26231f;
+  background: #f4f2ed;
+  --text: #26231f;
   --muted: oklch(0.97 0 0);
-  --faint: #8a96a3;
-  --bg: #eef2f7;
-  --surface: #ffffff;
-  --surface-soft: #f8fafc;
-  --surface-strong: #111827;
-  --border: oklch(0.922 0 0);
-  --border-soft: #e7edf3;
-  --app-accent: #2563eb;
+  --faint: #8a8177;
+  --bg: #f4f2ed;
+  --surface: #fffefa;
+  --surface-soft: #f7f5ef;
+  --surface-strong: #f0ede5;
+  --border: #ded8cd;
+  --border-soft: #ebe6dc;
+  --app-accent: #7c5c3f;
   --accent: oklch(0.97 0 0);
-  --accent-strong: #1d4ed8;
-  --accent-soft: #eaf1ff;
+  --accent-strong: #654a32;
+  --accent-soft: #eee6da;
   --teal: #0f766e;
   --teal-soft: #e8f5f3;
   --success: #15803d;
@@ -71,31 +71,16 @@ html, body, #root {
 }
 body {
   margin: 0;
-  background:
-    linear-gradient(180deg, #f8fafc 0%, #eef2f7 42%, #e9eef5 100%);
+  background: var(--bg);
 }
 button, input, select { font: inherit; }
 
 .shell {
   height: 100%;
-  padding: 18px;
+  padding: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
-}
-
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, .86);
-  box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(10px);
 }
 
 h1 {
@@ -107,7 +92,7 @@ h1 {
 
 p { margin: 0; color: var(--muted-foreground); }
 
-.topbarActions, .buttonRow, .panelHeader {
+.buttonRow, .panelHeader, .panelToolbar {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -160,7 +145,7 @@ input, select {
   background: var(--app-accent);
   color: white;
   border-color: var(--app-accent);
-  box-shadow: 0 10px 22px rgba(37, 99, 235, .18);
+  box-shadow: none;
 }
 
 .primaryButton:hover:not(:disabled) {
@@ -202,21 +187,23 @@ input, select {
 .appFrame {
   min-height: 0;
   display: grid;
-  grid-template-columns: 196px minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: 224px minmax(0, 1fr);
+  gap: 0;
   overflow: hidden;
+  background: var(--surface);
 }
 
 .navRail {
   min-height: 0;
-  border: 1px solid rgba(255, 255, 255, .08);
+  border: 0;
+  border-right: 1px solid var(--border-soft);
   background: var(--surface-strong);
-  border-radius: 12px;
-  padding: 10px;
+  border-radius: 0;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  box-shadow: var(--shadow);
+  gap: 4px;
+  box-shadow: none;
 }
 
 .navItem {
@@ -230,12 +217,12 @@ input, select {
   border-color: transparent;
   background: transparent;
   text-align: left;
-  color: #d8dee9;
+  color: #554c43;
 }
 
 .navItem span {
   display: inline-flex;
-  color: #aab4c2;
+  color: #7b7167;
 }
 
 .navItem strong {
@@ -244,7 +231,7 @@ input, select {
   white-space: nowrap;
   font-size: 13px;
   font-weight: 650;
-  color: #e5eaf2;
+  color: #3c352e;
 }
 
 .navItem em {
@@ -252,79 +239,51 @@ input, select {
   min-height: 22px;
   padding: 2px 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, .1);
-  color: #d8dee9;
+  background: rgba(38, 35, 31, .07);
+  color: #6a6056;
   font-size: 12px;
   font-style: normal;
   text-align: center;
 }
 
 .navItem.active {
-  border-color: rgba(147, 197, 253, .38);
-  background: rgba(37, 99, 235, .18);
-  box-shadow: inset 3px 0 0 #60a5fa;
+  border-color: transparent;
+  background: #e8e1d6;
+  box-shadow: none;
 }
 
 .navItem.active span,
 .navItem.active strong {
-  color: #fff;
+  color: #251f19;
 }
 
 .navItem.active em {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: #fffefa;
+  color: #59432f;
+}
+
+.navRailFooter {
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+.navRefresh {
+  width: 100%;
+  justify-content: center;
 }
 
 .contentPane {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
-}
-
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
+  padding: 14px 18px 18px;
+  background: var(--surface);
 }
 
 .contentStatus {
   min-height: 0;
-}
-
-.metric {
-  padding: 0;
-  box-shadow: var(--shadow-sm);
-}
-
-.metricContent {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 13px 14px;
-}
-
-.metricContent > span {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: var(--accent-soft);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-}
-.metric svg { width: 18px; height: 18px; color: var(--app-accent); }
-.metric strong { display: block; font-size: 23px; line-height: 1; color: #111827; }
-.metric p { font-size: 13px; margin-top: 4px; color: #344054; font-weight: 650; }
-.metric small {
-  display: block;
-  margin-top: 3px;
-  color: var(--faint);
-  font-size: 11px;
-  line-height: 1.25;
 }
 
 .panelNotice {
@@ -383,28 +342,35 @@ input, select {
 
 .panel {
   min-width: 0;
-  border: 1px solid var(--border);
+  border: 0;
   background: var(--surface);
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .accountsPanel { grid-column: 1; }
 
 .panelHeader {
   justify-content: space-between;
-  padding: 13px 15px;
+  padding: 6px 0 12px;
   border-bottom: 1px solid var(--border-soft);
   font-weight: 650;
-  min-height: 58px;
-  background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
-  color: #111827;
+  min-height: 42px;
+  background: transparent;
+  color: #2f2923;
 }
 .panelHeader > div { display: flex; align-items: center; gap: 8px; }
-.panelHeader select { width: 150px; }
+.panelHeader select,
+.panelToolbar select { width: 150px; }
+
+.panelToolbar {
+  justify-content: flex-end;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
 
 [data-slot="native-select-wrapper"] {
   width: 150px;
@@ -422,22 +388,13 @@ input, select {
   min-width: 130px;
 }
 
-.panelIntro {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border-soft);
-  color: var(--muted-foreground);
-  background: var(--surface-soft);
-  font-size: 13px;
-  line-height: 1.4;
-}
-
 .secondaryButton {
-  background: #f3f6fa;
-  color: #344054;
+  background: #f6f4ef;
+  color: #3e372f;
 }
 
 .secondaryButton:hover:not(:disabled) {
-  background: #eaf1f8;
+  background: #eee9df;
 }
 
 .dangerButton {
@@ -459,16 +416,19 @@ input, select {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
-.workflowButtons {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.checkboxControl {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
-.workflowButtons button {
-  min-height: 36px;
-  justify-content: center;
+.checkboxControl input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
 }
 
 .createAccount .buttonRow {
@@ -486,6 +446,28 @@ input, select {
   display: grid;
   grid-template-columns: minmax(160px, 1.3fr) minmax(140px, .9fr) minmax(180px, 1fr) minmax(180px, 1fr) 150px 92px;
   gap: 8px;
+}
+
+.mailboxImportMode {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mailboxImportMode button {
+  min-width: 58px;
+}
+
+.mailboxImportMode button.active {
+  border-color: var(--app-accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.mailboxBatchInput {
+  grid-column: span 4;
+  min-height: 94px;
+  resize: vertical;
 }
 
 .mailboxForm button {
@@ -917,6 +899,13 @@ tbody tr:hover, tr.selected { background: #f4f8ff; }
 .badge.good { color: var(--success); background: var(--success-soft); border-color: #bfe7cc; }
 .badge.mid { color: var(--warning); background: var(--warning-soft); border-color: #f1dc9b; }
 .badge.bad { color: var(--danger); background: var(--danger-soft); border-color: #f2c7c1; }
+
+.inlineBadges {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 
 .mono, .secret {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
@@ -1895,7 +1884,6 @@ pre {
 }
 
 @media (max-width: 1180px) {
-  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   html, body, #root { overflow: auto; }
   .shell {
     min-height: 100vh;
@@ -1918,6 +1906,11 @@ pre {
     flex-direction: row;
     overflow: visible;
   }
+  .navRailFooter {
+    margin-top: 0;
+    margin-left: auto;
+    padding-top: 0;
+  }
   .navItem {
     width: auto;
     min-width: 150px;
@@ -1927,6 +1920,7 @@ pre {
   .details { grid-template-columns: 1fr; }
   .mailboxForm { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mailboxOperationStrip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mailboxBatchInput { grid-column: 1 / -1; }
   .mailboxStatusStrip { grid-template-columns: 1fr; }
   .workflowTabToolbar {
     align-items: stretch;
@@ -1935,12 +1929,16 @@ pre {
 }
 
 @media (max-width: 640px) {
-  .shell { padding: 14px; }
-  .topbar { align-items: flex-start; flex-direction: column; }
+  .shell { padding: 0; }
+  .contentPane { padding: 12px; }
   .navRail {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     overflow: visible;
+  }
+  .navRailFooter {
+    grid-column: 1 / -1;
+    margin-left: 0;
   }
   .navItem {
     min-width: 0;
@@ -1959,7 +1957,8 @@ pre {
   }
   .headerControls select,
   .headerControls .compactInput,
-  .panelHeader select {
+  .panelHeader select,
+  .panelToolbar select {
     width: 100%;
   }
   .mailboxImportHeader {
@@ -1973,8 +1972,8 @@ pre {
   .statusStripGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .createAccount,
   .mailboxForm,
-  .createAccount .formGrid,
-  .workflowButtons { grid-template-columns: 1fr; }
+  .createAccount .formGrid { grid-template-columns: 1fr; }
+  .mailboxBatchInput { grid-column: 1; }
   .createAccount .buttonRow { height: auto; }
   .responsiveTable,
   .accountsPanel table,
