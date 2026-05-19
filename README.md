@@ -1,7 +1,7 @@
 # WebUI
 
-WebUI 是 nb-register 的浏览器操作界面，提供账号、邮箱、GoPay 和任务状态的统一前端入口。
-仓库同时提供 `server/` 下的 Go API 入口，负责把浏览器请求转发到 account-db、gpt orchestrator、mailbox-api 和 GoPay 支付服务。
+WebUI 是 byte-v-forge 的浏览器操作界面，提供账号、邮箱、GoPay 和任务状态的统一前端入口。
+仓库同时提供 `server/` 下的 Go API 入口，负责把浏览器请求转发到 `gpt-service` 和 `mailbox`。
 
 ## 本地开发
 

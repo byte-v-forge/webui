@@ -85,38 +85,38 @@ const (
 )
 
 func main() {
-	accountConn, err := newGRPCClient(envDefault("ACCOUNT_DB_ADDR", "account-db:50051"))
+	accountConn, err := newGRPCClient(envDefault("GPT_ACCOUNT_ADDR", "gpt-service:50052"))
 	if err != nil {
-		log.Fatalf("connect account-db: %v", err)
+		log.Fatalf("connect gpt account API: %v", err)
 	}
 	defer accountConn.Close()
 
-	orchestratorConn, err := newGRPCClient(envDefault("ORCHESTRATOR_ADDR", "orchestrator:50051"))
+	workflowConn, err := newGRPCClient(envDefault("GPT_WORKFLOW_ADDR", "gpt-service:50051"))
 	if err != nil {
-		log.Fatalf("connect orchestrator: %v", err)
+		log.Fatalf("connect gpt workflow API: %v", err)
 	}
-	defer orchestratorConn.Close()
+	defer workflowConn.Close()
 
-	paymentConn, err := newGRPCClient(envDefault("PAYMENT_ADDR", "gopay-payment:50051"))
+	paymentConn, err := newGRPCClient(envDefault("GPT_PAYMENT_ADDR", "gpt-service:50054"))
 	if err != nil {
-		log.Fatalf("connect payment: %v", err)
+		log.Fatalf("connect gpt payment API: %v", err)
 	}
 	defer paymentConn.Close()
 
-	mailboxConn, err := newGRPCClient(envDefault("MAILBOX_ADDR", "mailbox-api:50051"))
+	mailboxConn, err := newGRPCClient(envDefault("MAILBOX_ADDR", "mailbox:50051"))
 	if err != nil {
-		log.Fatalf("connect mailbox-api: %v", err)
+		log.Fatalf("connect mailbox: %v", err)
 	}
 	defer mailboxConn.Close()
 
 	s := &server{
 		accountClient:         pb.NewAccountDatabaseServiceClient(accountConn),
-		accountWorkflowClient: pb.NewAccountWorkflowServiceClient(orchestratorConn),
-		paymentWorkflowClient: pb.NewPaymentWorkflowServiceClient(orchestratorConn),
-		gopayAppClient:        pb.NewGoPayAppWorkflowServiceClient(orchestratorConn),
+		accountWorkflowClient: pb.NewAccountWorkflowServiceClient(workflowConn),
+		paymentWorkflowClient: pb.NewPaymentWorkflowServiceClient(workflowConn),
+		gopayAppClient:        pb.NewGoPayAppWorkflowServiceClient(workflowConn),
 		mailboxClient:         pb.NewMailboxServiceClient(mailboxConn),
-		otpClient:             pb.NewOTPServiceClient(orchestratorConn),
-		jobClient:             pb.NewJobServiceClient(orchestratorConn),
+		otpClient:             pb.NewOTPServiceClient(workflowConn),
+		jobClient:             pb.NewJobServiceClient(workflowConn),
 		paymentClient:         pb.NewPaymentServiceClient(paymentConn),
 		staticDir:             envDefault("STATIC_DIR", "web/dist"),
 	}
@@ -242,7 +242,7 @@ func (s *server) handleMailboxes(w http.ResponseWriter, r *http.Request) {
 		}
 		email := strings.ToLower(strings.TrimSpace(resp.GetMailbox().GetEmailAddress()))
 		if email == "" {
-			writeError(w, http.StatusBadGateway, errors.New("mailbox-api returned empty mailbox"))
+			writeError(w, http.StatusBadGateway, errors.New("mailbox returned empty mailbox"))
 			return
 		}
 		if _, err := s.accountClient.UpsertGPTEmailAllocation(r.Context(), &pb.UpsertGPTEmailAllocationRequest{
@@ -327,7 +327,7 @@ func (s *server) handleMailboxRegister(w http.ResponseWriter, r *http.Request) {
 		"started":       resp.GetStarted(),
 		"operation_id":  resp.GetOperationId(),
 		"error_message": resp.GetErrorMessage(),
-		"backend":       "mailbox-api",
+		"backend":       "mailbox",
 	})
 }
 
@@ -368,7 +368,7 @@ func (s *server) handleMailboxOAuth(w http.ResponseWriter, r *http.Request) {
 		"started":       resp.GetStarted(),
 		"operation_id":  resp.GetOperationId(),
 		"error_message": resp.GetErrorMessage(),
-		"backend":       "mailbox-api",
+		"backend":       "mailbox",
 	})
 }
 

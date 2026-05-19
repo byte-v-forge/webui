@@ -860,7 +860,7 @@ function App() {
     <main className="shell">
       <header className="topbar">
         <div>
-          <h1>NB Register</h1>
+          <h1>Byte V Forge</h1>
           <p>GPT 账号、邮箱和工作流控制台</p>
         </div>
         <div className="topbarActions">
