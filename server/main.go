@@ -179,6 +179,8 @@ func main() {
 	mux.HandleFunc("/api/workflows/activate", s.handleActivate)
 	mux.HandleFunc("/api/workflows/autopay", s.handleAutopay)
 	mux.HandleFunc("/api/workflows/login", s.handleLogin)
+	mux.HandleFunc("/api/workflows/codex-oauth", s.handleCodexOAuth)
+	mux.HandleFunc("/api/workflows/codex-oauth-add-phone/batch", s.handleCodexOAuthBatchAddPhone)
 	mux.HandleFunc("/api/workflows/codex-oauth-add-phone", s.handleCodexOAuthAddPhone)
 	mux.HandleFunc("/api/workflows/probe", s.handleProbeAccount)
 	mux.HandleFunc("/api/workflows/gopay-app", s.handleGoPayApp)
@@ -1627,6 +1629,28 @@ func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, statusCode, resp)
 }
 
+func (s *server) handleCodexOAuth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var req pb.CodexOAuthRequest
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	resp, err := s.accountWorkflowClient.CodexOAuth(r.Context(), &req)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	statusCode := http.StatusAccepted
+	if !resp.GetStarted() || resp.GetErrorMessage() != "" {
+		statusCode = http.StatusBadGateway
+	}
+	writeJSON(w, statusCode, resp)
+}
+
 func (s *server) handleCodexOAuthAddPhone(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -1638,6 +1662,28 @@ func (s *server) handleCodexOAuthAddPhone(w http.ResponseWriter, r *http.Request
 		return
 	}
 	resp, err := s.accountWorkflowClient.CodexOAuthAddPhone(r.Context(), &req)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	statusCode := http.StatusAccepted
+	if !resp.GetStarted() || resp.GetErrorMessage() != "" {
+		statusCode = http.StatusBadGateway
+	}
+	writeJSON(w, statusCode, resp)
+}
+
+func (s *server) handleCodexOAuthBatchAddPhone(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var req pb.CodexOAuthBatchAddPhoneRequest
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	resp, err := s.accountWorkflowClient.CodexOAuthBatchAddPhone(r.Context(), &req)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err)
 		return
