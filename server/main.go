@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -40,6 +41,7 @@ type server struct {
 	jobClient             pb.JobServiceClient
 	paymentClient         pb.PaymentServiceClient
 	dashboardServices     *dashboardServiceRegistry
+	proxyRuntimeProxy     http.Handler
 	staticDir             string
 }
 
@@ -137,6 +139,7 @@ func main() {
 		jobClient:             pb.NewJobServiceClient(workflowConn),
 		paymentClient:         pb.NewPaymentServiceClient(paymentConn),
 		dashboardServices:     newDashboardServiceRegistry(loadDashboardServiceStatusConfig()),
+		proxyRuntimeProxy:     newHTTPReverseProxy(envDefault("PROXY_RUNTIME_HTTP_ADDR", "http://proxy-runtime:8080")),
 		staticDir:             envDefault("STATIC_DIR", "web/dist"),
 	}
 
@@ -168,6 +171,7 @@ func main() {
 	mux.HandleFunc("/api/jobs", s.handleJobs)
 	mux.HandleFunc("/api/jobs/events", s.streamJobsEvents)
 	mux.HandleFunc("/api/jobs/", s.handleJob)
+	mux.HandleFunc("/api/proxy-runtime/", s.handleProxyRuntime)
 	mux.HandleFunc("/api/gopay/state", s.handleGoPayState)
 	mux.HandleFunc("/api/gopay/profile", s.handleGoPayProfile)
 	mux.HandleFunc("/api/gopay/user/", s.handleGoPayUserAction)
@@ -177,6 +181,7 @@ func main() {
 	mux.HandleFunc("/api/workflows/login", s.handleLogin)
 	mux.HandleFunc("/api/workflows/probe", s.handleProbeAccount)
 	mux.HandleFunc("/api/workflows/gopay-app", s.handleGoPayApp)
+	mux.HandleFunc("/api/workflows/gopay-qris-payment-activate", s.handleGoPayQRISPaymentActivate)
 	mux.HandleFunc("/api/workflows/gopay-wa-payment", s.handleGoPayWAPayment)
 	mux.HandleFunc("/api/workflows/gopay-payment/rebind", s.handleGoPayPaymentRebind)
 	mux.HandleFunc("/api/workflows/gopay-payment", s.handleGoPayPayment)
@@ -243,6 +248,22 @@ func (s *server) handleMailboxProviderCapabilities(w http.ResponseWriter, r *htt
 
 func (s *server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *server) handleProxyRuntime(w http.ResponseWriter, r *http.Request) {
+	s.proxyRuntimeProxy.ServeHTTP(w, r)
+}
+
+func newHTTPReverseProxy(target string) http.Handler {
+	parsed, err := url.Parse(target)
+	if err != nil {
+		log.Fatalf("parse reverse proxy target %q: %v", target, err)
+	}
+	proxy := httputil.NewSingleHostReverseProxy(parsed)
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		writeError(w, http.StatusBadGateway, err)
+	}
+	return proxy
 }
 
 func (s *server) handleAccounts(w http.ResponseWriter, r *http.Request) {
@@ -1247,6 +1268,17 @@ func (s *server) handleJob(w http.ResponseWriter, r *http.Request) {
 			}
 			writeError(w, http.StatusNotFound, fmt.Errorf("unsupported job otp action: %s", strings.Join(parts[1:], "/")))
 			return
+		case "gopay-payment":
+			if len(parts) != 3 || parts[2] != "confirm" {
+				writeError(w, http.StatusNotFound, fmt.Errorf("unsupported job gopay-payment action: %s", strings.Join(parts[1:], "/")))
+				return
+			}
+			if r.Method != http.MethodPost {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+			s.confirmManualGoPayPayment(w, r, jobID)
+			return
 		case "add-balance":
 			if len(parts) != 3 {
 				writeError(w, http.StatusNotFound, fmt.Errorf("unsupported job add-balance action: %s", strings.Join(parts[1:], "/")))
@@ -1426,6 +1458,21 @@ func (s *server) submitJobOTP(w http.ResponseWriter, r *http.Request, jobID stri
 
 func (s *server) resendJobOTP(w http.ResponseWriter, r *http.Request, jobID string) {
 	resp, err := s.otpClient.ResendOTP(r.Context(), &pb.ResendOTPRequest{
+		JobId: jobID,
+	})
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	if resp.GetErrorMessage() != "" {
+		writeError(w, http.StatusBadRequest, errors.New(resp.GetErrorMessage()))
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *server) confirmManualGoPayPayment(w http.ResponseWriter, r *http.Request, jobID string) {
+	resp, err := s.gopayAppClient.ConfirmManualGoPayPayment(r.Context(), &pb.ConfirmManualGoPayPaymentRequest{
 		JobId: jobID,
 	})
 	if err != nil {
@@ -1735,6 +1782,28 @@ func (s *server) handleGoPayPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp, err := s.gopayAppClient.RunGoPayPayment(r.Context(), &req)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	statusCode := http.StatusAccepted
+	if !resp.GetStarted() || resp.GetErrorMessage() != "" {
+		statusCode = http.StatusBadGateway
+	}
+	writeJSON(w, statusCode, resp)
+}
+
+func (s *server) handleGoPayQRISPaymentActivate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var req pb.GoPayQRISPaymentActivateRequest
+	if err := readProtoJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	resp, err := s.gopayAppClient.RunGoPayQRISPaymentActivate(r.Context(), &req)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err)
 		return
