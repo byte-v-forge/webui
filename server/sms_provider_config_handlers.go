@@ -8,6 +8,22 @@ import (
 	"webui/server/pb"
 )
 
+func (s *server) handleSMSProviderPlugins(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	resp, err := s.smsAdminClient.ListProviderPlugins(r.Context(), &pb.ListProviderPluginsRequest{})
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	if writeProviderError(w, resp.GetError()) {
+		return
+	}
+	writeProtoJSON(w, http.StatusOK, resp)
+}
+
 func (s *server) handleSMSProviderConfigs(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:

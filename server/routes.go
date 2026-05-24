@@ -20,6 +20,7 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("/api/mailbox-operations", s.handleMailboxOperations)
 	mux.HandleFunc("/api/mailboxes/", s.handleMailbox)
 	mux.HandleFunc("/api/mailboxes", s.handleMailboxes)
+	mux.HandleFunc("/api/sms/provider-plugins", s.handleSMSProviderPlugins)
 	mux.HandleFunc("/api/sms/provider-configs/", s.handleSMSProviderConfig)
 	mux.HandleFunc("/api/sms/provider-configs", s.handleSMSProviderConfigs)
 	mux.HandleFunc("/api/sms/route-options", s.handleSMSRouteOptions)
