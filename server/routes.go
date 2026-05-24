@@ -2,57 +2,70 @@ package main
 
 import "net/http"
 
+type routeBinding struct {
+	path    string
+	handler http.HandlerFunc
+}
+
 func (s *server) routes() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/health", s.handleHealth)
-	mux.HandleFunc("/api/service-status", s.handleServiceStatus)
-	mux.HandleFunc("/api/accounts/events", s.streamAccountEvents)
-	mux.HandleFunc("/api/accounts/mailbox/sync", s.handleAccountMailboxSync)
-	mux.HandleFunc("/api/accounts", s.handleAccounts)
-	mux.HandleFunc("/api/accounts/", s.handleAccount)
-	mux.HandleFunc("/api/mailboxes/register", s.handleMailboxRegister)
-	mux.HandleFunc("/api/mailboxes/oauth", s.handleMailboxOAuth)
-	mux.HandleFunc("/api/mailboxes/inbox", s.handleMailboxInbox)
-	mux.HandleFunc("/api/mailboxes/events", s.streamMailboxEvents)
-	mux.HandleFunc("/api/mailbox-domains", s.handleMailboxDomains)
-	mux.HandleFunc("/api/mailbox-provider-capabilities", s.handleMailboxProviderCapabilities)
-	mux.HandleFunc("/api/mailbox-operations/", s.handleMailboxOperation)
-	mux.HandleFunc("/api/mailbox-operations", s.handleMailboxOperations)
-	mux.HandleFunc("/api/mailboxes/", s.handleMailbox)
-	mux.HandleFunc("/api/mailboxes", s.handleMailboxes)
-	mux.HandleFunc("/api/sms/provider-plugins", s.handleSMSProviderPlugins)
-	mux.HandleFunc("/api/sms/provider-configs/", s.handleSMSProviderConfig)
-	mux.HandleFunc("/api/sms/provider-configs", s.handleSMSProviderConfigs)
-	mux.HandleFunc("/api/sms/route-options", s.handleSMSRouteOptions)
-	mux.HandleFunc("/api/sms/route-profiles/", s.handleSMSRouteProfile)
-	mux.HandleFunc("/api/sms/route-profiles", s.handleSMSRouteProfiles)
-	mux.HandleFunc("/api/sms/activations/", s.handleSMSActivation)
-	mux.HandleFunc("/api/sms/activations", s.handleSMSActivations)
-	mux.HandleFunc("/api/gpt-email-allocations", s.handleGPTEmailAllocations)
-	mux.HandleFunc("/api/jobs", s.handleJobs)
-	mux.HandleFunc("/api/jobs/events", s.streamJobsEvents)
-	mux.HandleFunc("/api/jobs/", s.handleJob)
-	mux.HandleFunc("/api/proxy-runtime/", s.handleProxyRuntime)
-	mux.HandleFunc("/api/gopay/state", s.handleGoPayState)
-	mux.HandleFunc("/api/gopay/profile", s.handleGoPayProfile)
-	mux.HandleFunc("/api/gopay/user/", s.handleGoPayUserAction)
-	mux.HandleFunc("/api/workflows/register-protocol", s.handleRegisterProtocol)
-	mux.HandleFunc("/api/workflows/register", s.handleRegister)
-	mux.HandleFunc("/api/workflows/activate", s.handleActivate)
-	mux.HandleFunc("/api/workflows/autopay", s.handleAutopay)
-	mux.HandleFunc("/api/workflows/login-protocol", s.handleLoginProtocol)
-	mux.HandleFunc("/api/workflows/login", s.handleLogin)
-	mux.HandleFunc("/api/workflows/codex-oauth", s.handleCodexOAuth)
-	mux.HandleFunc("/api/workflows/codex-oauth-protocol", s.handleCodexOAuthProtocol)
-	mux.HandleFunc("/api/workflows/codex-oauth-add-phone/batch", s.handleCodexOAuthBatchAddPhone)
-	mux.HandleFunc("/api/workflows/codex-oauth-add-phone", s.handleCodexOAuthAddPhone)
-	mux.HandleFunc("/api/workflows/probe", s.handleProbeAccount)
-	mux.HandleFunc("/api/workflows/gopay-app", s.handleGoPayApp)
-	mux.HandleFunc("/api/workflows/gopay-qris-payment-activate", s.handleGoPayQRISPaymentActivate)
-	mux.HandleFunc("/api/workflows/gopay-wa-payment", s.handleGoPayWAPayment)
-	mux.HandleFunc("/api/workflows/gopay-payment/rebind", s.handleGoPayPaymentRebind)
-	mux.HandleFunc("/api/workflows/gopay-payment", s.handleGoPayPayment)
-	mux.HandleFunc("/api/workflows/register-and-activate", s.handleRegisterAndActivate)
-	mux.HandleFunc("/", s.handleStatic)
+	for _, route := range s.routeBindings() {
+		mux.HandleFunc(route.path, route.handler)
+	}
 	return mux
+}
+
+func (s *server) routeBindings() []routeBinding {
+	return []routeBinding{
+		{"/api/health", s.handleHealth},
+		{"/api/service-status", s.handleServiceStatus},
+		{"/api/accounts/events", s.streamAccountEvents},
+		{"/api/accounts/mailbox/sync", s.handleAccountMailboxSync},
+		{"/api/accounts", s.handleAccounts},
+		{"/api/accounts/", s.handleAccount},
+		{"/api/mailboxes/register", s.handleMailboxRegister},
+		{"/api/mailboxes/oauth", s.handleMailboxOAuth},
+		{"/api/mailboxes/inbox", s.handleMailboxInbox},
+		{"/api/mailboxes/events", s.streamMailboxEvents},
+		{"/api/mailbox-domains", s.handleMailboxDomains},
+		{"/api/mailbox-provider-capabilities", s.handleMailboxProviderCapabilities},
+		{"/api/mailbox-operations/", s.handleMailboxOperation},
+		{"/api/mailbox-operations", s.handleMailboxOperations},
+		{"/api/mailboxes/", s.handleMailbox},
+		{"/api/mailboxes", s.handleMailboxes},
+		{"/api/sms/provider-plugins", s.handleSMSProviderPlugins},
+		{"/api/sms/provider-configs/", s.handleSMSProviderConfig},
+		{"/api/sms/provider-configs", s.handleSMSProviderConfigs},
+		{"/api/sms/route-options", s.handleSMSRouteOptions},
+		{"/api/sms/route-profiles/", s.handleSMSRouteProfile},
+		{"/api/sms/route-profiles", s.handleSMSRouteProfiles},
+		{"/api/sms/activations/", s.handleSMSActivation},
+		{"/api/sms/activations", s.handleSMSActivations},
+		{"/api/gpt-email-allocations", s.handleGPTEmailAllocations},
+		{"/api/jobs", s.handleJobs},
+		{"/api/jobs/events", s.streamJobsEvents},
+		{"/api/jobs/", s.handleJob},
+		{"/api/proxy-runtime/", s.handleProxyRuntime},
+		{"/api/gopay/state", s.handleGoPayState},
+		{"/api/gopay/profile", s.handleGoPayProfile},
+		{"/api/gopay/user/", s.handleGoPayUserAction},
+		{"/api/workflows/register-protocol", s.handleRegisterProtocol},
+		{"/api/workflows/register", s.handleRegister},
+		{"/api/workflows/activate", s.handleActivate},
+		{"/api/workflows/autopay", s.handleAutopay},
+		{"/api/workflows/login-protocol", s.handleLoginProtocol},
+		{"/api/workflows/login", s.handleLogin},
+		{"/api/workflows/codex-oauth", s.handleCodexOAuth},
+		{"/api/workflows/codex-oauth-protocol", s.handleCodexOAuthProtocol},
+		{"/api/workflows/codex-oauth-add-phone/batch", s.handleCodexOAuthBatchAddPhone},
+		{"/api/workflows/codex-oauth-add-phone", s.handleCodexOAuthAddPhone},
+		{"/api/workflows/probe", s.handleProbeAccount},
+		{"/api/workflows/gopay-app", s.handleGoPayApp},
+		{"/api/workflows/gopay-qris-payment-activate", s.handleGoPayQRISPaymentActivate},
+		{"/api/workflows/gopay-wa-payment", s.handleGoPayWAPayment},
+		{"/api/workflows/gopay-payment/rebind", s.handleGoPayPaymentRebind},
+		{"/api/workflows/gopay-payment", s.handleGoPayPayment},
+		{"/api/workflows/register-and-activate", s.handleRegisterAndActivate},
+		{"/", s.handleStatic},
+	}
 }
