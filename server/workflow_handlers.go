@@ -96,6 +96,24 @@ func (s *server) handleCodexOAuth(w http.ResponseWriter, r *http.Request) {
 	writeStartedJSON(w, resp)
 }
 
+func (s *server) handleCodexOAuthProtocol(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var req pb.CodexOAuthRequest
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	resp, err := s.accountWorkflowClient.CodexOAuthProtocol(r.Context(), &req)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeStartedJSON(w, resp)
+}
+
 func (s *server) handleCodexOAuthAddPhone(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)

@@ -40,6 +40,7 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("/api/workflows/autopay", s.handleAutopay)
 	mux.HandleFunc("/api/workflows/login", s.handleLogin)
 	mux.HandleFunc("/api/workflows/codex-oauth", s.handleCodexOAuth)
+	mux.HandleFunc("/api/workflows/codex-oauth-protocol", s.handleCodexOAuthProtocol)
 	mux.HandleFunc("/api/workflows/codex-oauth-add-phone/batch", s.handleCodexOAuthBatchAddPhone)
 	mux.HandleFunc("/api/workflows/codex-oauth-add-phone", s.handleCodexOAuthAddPhone)
 	mux.HandleFunc("/api/workflows/probe", s.handleProbeAccount)
