@@ -1,44 +1,36 @@
 import { Circle } from 'lucide-react';
-import { createElement, type ReactNode } from 'react';
+import { createElement, type ComponentType, type ReactNode } from 'react';
 import {
   DashboardNavSection,
   type DashboardServiceStatus,
   type DashboardServiceStatusResponse
-} from '@/proto/dashboard';
-import type { DashboardModuleManifest, DashboardModuleRegistration } from './module-contract';
+} from '@byte-v-forge/common-ui';
+import { loadDashboardModuleRegistrations as loadRemoteDashboardModuleRegistrations } from './generated-module-registry';
+import type { DashboardModuleRegistration, DashboardModuleViewProps } from './module-contract';
 
 export type { DashboardModuleManifest, DashboardModuleRegistration } from './module-contract';
-export type { DashboardServiceStatus, DashboardServiceStatusResponse } from '@/proto/dashboard';
+
+export async function loadDashboardModuleRegistrations(): Promise<DashboardModuleRegistration[]> {
+  return loadRemoteDashboardModuleRegistrations();
+}
+
+export type { DashboardServiceStatus, DashboardServiceStatusResponse } from '@byte-v-forge/common-ui';
 
 export type DashboardNavItem = {
   key: string;
   label: string;
   icon: ReactNode;
-  section: 'main' | 'lab';
+  section: 'main' | 'infrastructure' | 'lab';
   requiredServices: string[];
   order: number;
 };
 
+export type DashboardModuleViews = Record<string, ComponentType<DashboardModuleViewProps>>;
 export type ServiceStatusMap = Record<string, DashboardServiceStatus>;
 
-const manifestModules = import.meta.glob<{
-  default?: DashboardModuleManifest | DashboardModuleRegistration;
-  manifest?: DashboardModuleManifest | DashboardModuleRegistration;
-  registration?: DashboardModuleRegistration;
-}>(
-  './modules/*/manifest.tsx',
-  { eager: true }
-);
-
-export const dashboardModuleRegistrations = Object.values(manifestModules)
-  .map((module) => normalizeRegistration(module.registration || module.default || module.manifest))
-  .filter((registration): registration is DashboardModuleRegistration => !!registration?.manifest?.id)
-  .sort((left, right) => left.manifest.id.localeCompare(right.manifest.id));
-
-export const dashboardModuleViews = Object.assign(
-  {},
-  ...dashboardModuleRegistrations.map((registration) => registration.views || {})
-);
+export function createDashboardModuleViews(registrations: DashboardModuleRegistration[]): DashboardModuleViews {
+  return Object.assign({}, ...registrations.map((registration) => registration.views || {}));
+}
 
 export function buildDashboardNavItems(registrations: DashboardModuleRegistration[]): DashboardNavItem[] {
   return registrations
@@ -58,14 +50,8 @@ export function indexServiceStatus(response: DashboardServiceStatusResponse | nu
   return Object.fromEntries((response?.services || []).map((service) => [service.name, service]));
 }
 
-function normalizeRegistration(
-  value: DashboardModuleManifest | DashboardModuleRegistration | undefined
-): DashboardModuleRegistration | null {
-  if (!value) return null;
-  if ('manifest' in value) return value;
-  return { manifest: value };
-}
-
-function dashboardNavSection(section: DashboardNavSection | undefined): 'main' | 'lab' {
-  return section === DashboardNavSection.DASHBOARD_NAV_SECTION_LAB ? 'lab' : 'main';
+function dashboardNavSection(section: DashboardNavSection | undefined): 'main' | 'infrastructure' | 'lab' {
+  if (section === DashboardNavSection.DASHBOARD_NAV_SECTION_LAB) return 'lab';
+  if (section === DashboardNavSection.DASHBOARD_NAV_SECTION_INFRASTRUCTURE) return 'infrastructure';
+  return 'main';
 }

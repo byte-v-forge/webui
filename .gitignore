@@ -2,6 +2,8 @@ node_modules/
 dist/
 src/proto/
 src/dashboard/modules/
+src/dashboard/generated-module-registry.ts
+src/dashboard/remote-modules.d.ts
 server/pb/
 *.tsbuildinfo
 *.log

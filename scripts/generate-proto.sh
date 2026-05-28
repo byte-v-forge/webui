@@ -3,77 +3,36 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE_ROOT="${SOURCE_ROOT:-$(cd "${ROOT}/.." && pwd)}"
-WEBUI_PROTO_DIR="${WEBUI_PROTO_DIR:-${ROOT}/proto}"
-GPT_PROTO_DIR="${GPT_PROTO_DIR:-${SOURCE_ROOT}/gpt/proto}"
-MAILBOX_PROTO_DIR="${MAILBOX_PROTO_DIR:-${SOURCE_ROOT}/mailbox/proto}"
-SMS_PROTO_DIR="${SMS_PROTO_DIR:-${SOURCE_ROOT}/sms/proto}"
-WEBUI_DASHBOARD_PROTO="${WEBUI_PROTO_DIR}/dashboard.proto"
-MAILBOX_EMAIL_PROTO="${MAILBOX_PROTO_DIR}/email.proto"
-MAILBOX_SERVICE_PROTO="${MAILBOX_PROTO_DIR}/mailbox_service.proto"
-SMS_CONTRACT_PROTO="${SMS_PROTO_DIR}/byte/v/forge/contracts/sms/v1/sms.proto"
-SMS_INTERNAL_PROTO="${SMS_PROTO_DIR}/byte/v/forge/sms/internal/v1/sms_internal.proto"
-OUT_DIR="${ROOT}/src/proto"
-GO_OUT_DIR="${ROOT}/server/pb"
-PLUGIN="${ROOT}/node_modules/.bin/protoc-gen-ts_proto"
+COMMON_ROOT="${COMMON_ROOT:-${SOURCE_ROOT}/common-lib}"
+COMMON_PROTO_DIR="${COMMON_PROTO_DIR:-${COMMON_ROOT}/proto}"
+DEPLOY_MODULES_CONFIG="${FRONTEND_MODULES_CONFIG:-${SOURCE_ROOT}/deploy/frontend-modules.json}"
+TS_PROTO_PLUGIN="${PROTOC_GEN_TS_PROTO:-${ROOT}/node_modules/.bin/protoc-gen-ts_proto}"
 
-if [[ ! -d "${GPT_PROTO_DIR}" ]]; then
-  printf 'gpt proto dir not found: %s\n' "${GPT_PROTO_DIR}" >&2
+run_if_exists() {
+  local script=$1
+  if [[ -x "${script}" ]]; then
+    SOURCE_ROOT="${SOURCE_ROOT}" PROTOC_GEN_TS_PROTO="${TS_PROTO_PLUGIN}" "${script}"
+  fi
+}
+
+if [[ ! -x "${TS_PROTO_PLUGIN}" ]]; then
+  printf 'ts-proto plugin not found at %s; run npm install first\n' "${TS_PROTO_PLUGIN}" >&2
   exit 1
 fi
-if [[ ! -f "${WEBUI_DASHBOARD_PROTO}" ]]; then
-  printf 'webui dashboard proto not found: %s\n' "${WEBUI_DASHBOARD_PROTO}" >&2
+if [[ ! -d "${COMMON_PROTO_DIR}" ]]; then
+  printf 'common proto dir not found: %s\n' "${COMMON_PROTO_DIR}" >&2
   exit 1
 fi
-if [[ ! -f "${MAILBOX_EMAIL_PROTO}" || ! -f "${MAILBOX_SERVICE_PROTO}" ]]; then
-  printf 'mailbox proto not found under: %s\n' "${MAILBOX_PROTO_DIR}" >&2
-  exit 1
-fi
-if [[ ! -f "${SMS_CONTRACT_PROTO}" || ! -f "${SMS_INTERNAL_PROTO}" ]]; then
-  printf 'sms proto not found under: %s\n' "${SMS_PROTO_DIR}" >&2
+if [[ ! -f "${DEPLOY_MODULES_CONFIG}" ]]; then
+  printf 'frontend module config not found: %s\n' "${DEPLOY_MODULES_CONFIG}" >&2
   exit 1
 fi
 
-if [[ ! -x "${PLUGIN}" ]]; then
-  printf 'ts-proto plugin not found at %s; run npm install first\n' "${PLUGIN}" >&2
-  exit 1
-fi
+run_if_exists "${COMMON_ROOT}/scripts/generate-web-proto.sh"
+run_if_exists "${SOURCE_ROOT}/mailbox/webui/scripts/generate-proto.sh"
+run_if_exists "${SOURCE_ROOT}/gpt/webui/scripts/generate-proto.sh"
+run_if_exists "${SOURCE_ROOT}/sms/webui/scripts/generate-proto.sh"
 
-rm -rf "${OUT_DIR}"
-mkdir -p "${OUT_DIR}"
-rm -rf "${GO_OUT_DIR}"
-mkdir -p "${GO_OUT_DIR}"
-
-ORCHESTRATOR_PROTOS=("${GPT_PROTO_DIR}"/orchestrator*.proto)
-PROTOS=(
-  "${WEBUI_DASHBOARD_PROTO}"
-  "${GPT_PROTO_DIR}/account_db.proto"
-  "${MAILBOX_EMAIL_PROTO}"
-  "${GPT_PROTO_DIR}/gopay_app.proto"
-  "${GPT_PROTO_DIR}/payment.proto"
-  "${MAILBOX_SERVICE_PROTO}"
-  "${SMS_CONTRACT_PROTO}"
-  "${SMS_INTERNAL_PROTO}"
-  "${ORCHESTRATOR_PROTOS[@]}"
-)
-
-PROTO_INCLUDES=("-I" "${WEBUI_PROTO_DIR}" "-I" "${GPT_PROTO_DIR}" "-I" "${MAILBOX_PROTO_DIR}" "-I" "${SMS_PROTO_DIR}")
-if [[ -d /usr/include/google/protobuf ]]; then
-  PROTO_INCLUDES+=("-I" "/usr/include")
-fi
-
-protoc "${PROTO_INCLUDES[@]}" \
-  --plugin="protoc-gen-ts_proto=${PLUGIN}" \
-  --ts_proto_out="${OUT_DIR}" \
-  --ts_proto_opt=onlyTypes=true,outputServices=none,esModuleInterop=true,useJsonWireFormat=true,snakeToCamel=false \
-  "${PROTOS[@]}"
-
-if [[ "${GENERATE_GO_PROTO:-true}" != "false" ]]; then
-  protoc "${PROTO_INCLUDES[@]}" \
-    --go_opt=Mbyte/v/forge/contracts/sms/v1/sms.proto=./\;pb \
-    --go_opt=Mbyte/v/forge/sms/internal/v1/sms_internal.proto=./\;pb \
-    --go_out="${GO_OUT_DIR}" \
-    --go-grpc_opt=Mbyte/v/forge/contracts/sms/v1/sms.proto=./\;pb \
-    --go-grpc_opt=Mbyte/v/forge/sms/internal/v1/sms_internal.proto=./\;pb \
-    --go-grpc_out="${GO_OUT_DIR}" \
-    "${PROTOS[@]}"
-fi
+SOURCE_ROOT="${SOURCE_ROOT}" FRONTEND_MODULES_CONFIG="${DEPLOY_MODULES_CONFIG}" \
+  TARGET_FILE="${ROOT}/src/dashboard/generated-module-registry.ts" \
+  "${SOURCE_ROOT}/deploy/scripts/sync-dashboard-modules.sh"

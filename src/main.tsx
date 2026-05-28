@@ -1,6 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { ThemeProvider } from '@/components/theme-provider';
+import { ThemeProvider, TooltipProvider } from '@byte-v-forge/common-ui';
 import { AppQueryProvider } from '@/query/provider';
 import App from './dashboard/App';
 import './styles.css';

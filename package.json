@@ -4,15 +4,17 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "predev": "npm run proto",
+    "predev": "npm run proto:frontend",
     "dev": "vite --host 0.0.0.0",
-    "prebuild": "npm run proto",
+    "prebuild": "npm run proto:frontend",
     "build": "tsc -b && vite build",
-    "prelint": "npm run proto",
+    "prelint": "npm run proto:frontend",
     "lint": "tsc --noEmit",
-    "proto": "./scripts/generate-proto.sh"
+    "proto": "./scripts/generate-proto.sh",
+    "proto:frontend": "GENERATE_GO_PROTO=false ./scripts/generate-proto.sh"
   },
   "dependencies": {
+    "@byte-v-forge/common-ui": "file:../common-lib/ui",
     "@fontsource-variable/geist": "^5.2.8",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
@@ -39,6 +41,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "ts-proto": "^2.11.8"
+    "ts-proto": "^2.11.8",
+    "@module-federation/vite": "^1.15.5"
   }
 }
