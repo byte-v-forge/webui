@@ -1,4 +1,3 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -20,40 +19,13 @@ const linkedPeerAliases = [
   { find: /^tailwind-merge$/, replacement: path.resolve(__dirname, 'node_modules/tailwind-merge') }
 ];
 
-type FrontendModuleConfig = {
-  id?: string;
-  remoteName?: string;
-  remoteEntry?: string;
-  exposedModule?: string;
-  enabled?: boolean;
-};
-
-const sourceRoot = process.env.SOURCE_ROOT || path.resolve(__dirname, '..');
-const modulesConfigPath = process.env.FRONTEND_MODULES_CONFIG || path.resolve(sourceRoot, 'deploy/frontend-modules.json');
-
-function dashboardRemotes() {
-  const raw = fs.readFileSync(modulesConfigPath, 'utf8');
-  const modules = (JSON.parse(raw).modules || []) as FrontendModuleConfig[];
-  return Object.fromEntries(
-    modules
-      .filter((module) => module.enabled !== false)
-      .map((module) => {
-        const name = module.remoteName || module.id;
-        if (!name || !module.remoteEntry) {
-          throw new Error(`invalid dashboard module config: ${JSON.stringify(module)}`);
-        }
-        return [name, { type: 'module', name, entry: module.remoteEntry }];
-      })
-  );
-}
-
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     federation({
       name: 'dashboard_shell',
-      remotes: dashboardRemotes(),
+      remotes: {},
       shared: {
         react: { singleton: true },
         'react/jsx-runtime': { singleton: true },

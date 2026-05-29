@@ -18,6 +18,7 @@ export type { DashboardServiceStatus, DashboardServiceStatusResponse } from '@by
 
 export type DashboardNavItem = {
   key: string;
+  moduleId: string;
   label: string;
   icon: ReactNode;
   section: 'main' | 'infrastructure' | 'lab';
@@ -37,6 +38,7 @@ export function buildDashboardNavItems(registrations: DashboardModuleRegistratio
     .flatMap((registration) => (registration.manifest.nav || []).map((entry) => ({ entry, registration })))
     .map((entry, index) => ({
       key: entry.entry.key,
+      moduleId: entry.registration.manifest.id,
       label: entry.entry.label,
       icon: entry.registration.icons?.[entry.entry.icon] || createElement(Circle, { size: 17 }),
       section: dashboardNavSection(entry.entry.section),
