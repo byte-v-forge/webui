@@ -1,5 +1,4 @@
-import { Circle } from 'lucide-react';
-import { createElement, type ComponentType, type ReactNode } from 'react';
+import { type ComponentType, type ReactNode } from 'react';
 import {
   DashboardNavSection,
   type DashboardServiceStatus,
@@ -7,6 +6,7 @@ import {
 } from '@byte-v-forge/common-ui';
 import { loadDashboardModuleRegistrations as loadRemoteDashboardModuleRegistrations } from './generated-module-registry';
 import type { DashboardModuleRegistration, DashboardModuleViewProps } from './module-contract';
+import { dashboardNavIcon } from './nav-icons';
 
 export type { DashboardModuleManifest, DashboardModuleRegistration } from './module-contract';
 
@@ -40,7 +40,7 @@ export function buildDashboardNavItems(registrations: DashboardModuleRegistratio
       key: entry.entry.key,
       moduleId: entry.registration.manifest.id,
       label: entry.entry.label,
-      icon: entry.registration.icons?.[entry.entry.icon] || createElement(Circle, { size: 17 }),
+      icon: entry.registration.icons?.[entry.entry.icon] || dashboardNavIcon(entry.entry.icon),
       section: dashboardNavSection(entry.entry.section),
       requiredServices: entry.entry.required_services || [],
       order: entry.entry.order || index

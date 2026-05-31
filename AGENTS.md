@@ -12,4 +12,5 @@
 - 表单基础能力使用 React Hook Form 结合 shadcn/Radix 官方表单、输入、选择和校验组件；本仓只提供可复用包装，不写业务字段。
 - 前端查询统一使用 TanStack Query；SSE/事件推送通过共享事件适配层进入 QueryClient cache 或通用 hook。
 - 手写前端源文件（`.ts`、`.tsx`、`.css`）单文件不得超过 200 行；超过时先拆分组件、hook、utils 或 module-kit 能力。
+- Linter 检查必须达到 0 error / 0 warning；禁止通过修改或放宽 linter 配置、降低规则级别、删除规则、添加 ignore/disable/nolint/ts-ignore/eslint-disable/biome-ignore/prettier-ignore 等方式绕过问题，只能按 linter 规则修复源码、类型、格式或依赖边界。
 - Mac 本机禁止前端构建；需要构建、镜像或部署验证时走远程宿主机和 `deploy` 脚本。
