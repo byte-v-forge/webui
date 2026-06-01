@@ -1,11 +1,12 @@
 import openAIIcon from '@lobehub/icons-static-svg/icons/openai.svg?url';
-import { Circle, Mailbox, MessageSquareText, Router, Workflow, type LucideIcon } from 'lucide-react';
+import { Circle, Mailbox, MessageCircle, MessageSquareText, Router, WalletCards, Workflow, type LucideIcon } from 'lucide-react';
 import { createElement, type ReactNode } from 'react';
 
 const NAV_ICON_IMAGES: Record<string, string> = { gpt: openAIIcon, openai: openAIIcon };
 
 const NAV_ICONS: Record<string, LucideIcon> = {
-
+  'message-circle': MessageCircle,
+  'wallet-cards': WalletCards,
   mailbox: Mailbox,
   mailboxes: Mailbox,
   sms: MessageSquareText,
