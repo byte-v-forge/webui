@@ -14,7 +14,7 @@ type server struct {
 
 func main() {
 	s := &server{
-		dashboardServices: newDashboardServiceRegistry(envx.StringDefault("TRAEFIK_API_ADDR", defaultTraefikAPIAddr)),
+		dashboardServices: newDashboardServiceRegistry(envx.StringDefault("TRAEFIK_API_ADDR", defaultTraefikAPIAddr), loadDashboardCatalogServices()),
 		staticDir:         envx.StringDefault("STATIC_DIR", "web/dist"),
 	}
 

@@ -12,7 +12,7 @@ COPY webui/package.json webui/package-lock.json* ./
 RUN npm ci
 COPY webui/index.html webui/vite.config.ts webui/tsconfig.json ./
 COPY webui/public ./public
-COPY frontend-modules.json /deploy/frontend-modules.json
+COPY dashboard-catalog.json /deploy/dashboard-catalog.json
 COPY scripts /deploy/scripts
 COPY webui/scripts ./scripts
 COPY webui/src ./src
@@ -39,6 +39,7 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 WORKDIR /app
 COPY --from=go-builder /app/webui .
 COPY --from=go-builder /app/web/dist ./web/dist
+COPY --from=web-builder /deploy/dashboard-catalog.json ./dashboard-catalog.json
 
 EXPOSE 8080
 CMD ["./webui"]

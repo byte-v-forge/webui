@@ -17,7 +17,8 @@ import (
 const defaultTraefikAPIAddr = "http://traefik:8080"
 
 type dashboardServiceRegistry struct {
-	client *traefikStatusClient
+	client     *traefikStatusClient
+	components []string
 }
 
 type traefikStatusClient struct {
@@ -25,12 +26,12 @@ type traefikStatusClient struct {
 	http    *http.Client
 }
 
-func newDashboardServiceRegistry(apiAddr string) *dashboardServiceRegistry {
+func newDashboardServiceRegistry(apiAddr string, componentNames []string) *dashboardServiceRegistry {
 	client, err := newTraefikStatusClient(apiAddr)
 	if err != nil {
 		client, _ = newTraefikStatusClient(defaultTraefikAPIAddr)
 	}
-	return &dashboardServiceRegistry{client: client}
+	return &dashboardServiceRegistry{client: client, components: normalizedServiceComponents(componentNames)}
 }
 
 func newTraefikStatusClient(apiAddr string) (*traefikStatusClient, error) {
@@ -61,14 +62,14 @@ func (r *dashboardServiceRegistry) snapshot(ctx context.Context) *dashboardv1.Da
 	if r == nil || r.client == nil {
 		return &dashboardv1.DashboardServiceStatusResponse{Services: []*dashboardv1.DashboardServiceStatus{traefikUnavailable(checkedAt, "Traefik API is not configured")}}
 	}
-	services, err := r.client.statuses(ctx, checkedAt)
+	services, err := r.client.statuses(ctx, checkedAt, r.components)
 	if err != nil {
 		return &dashboardv1.DashboardServiceStatusResponse{Services: []*dashboardv1.DashboardServiceStatus{traefikUnavailable(checkedAt, err.Error())}}
 	}
 	return &dashboardv1.DashboardServiceStatusResponse{Services: services}
 }
 
-func (c *traefikStatusClient) statuses(ctx context.Context, checkedAt int64) ([]*dashboardv1.DashboardServiceStatus, error) {
+func (c *traefikStatusClient) statuses(ctx context.Context, checkedAt int64, components []string) ([]*dashboardv1.DashboardServiceStatus, error) {
 	merged := map[string]*dashboardv1.DashboardServiceStatus{}
 	var errs []string
 	for _, endpoint := range []string{"/api/http/services", "/api/tcp/services"} {
@@ -78,7 +79,7 @@ func (c *traefikStatusClient) statuses(ctx context.Context, checkedAt int64) ([]
 			continue
 		}
 		for _, item := range items {
-			status := traefikServiceStatus(item, checkedAt)
+			status := traefikServiceStatus(item, checkedAt, components)
 			if status.GetName() == "" {
 				continue
 			}
@@ -118,8 +119,8 @@ func (c *traefikStatusClient) fetchServiceItems(ctx context.Context, endpoint st
 	return items, nil
 }
 
-func traefikServiceStatus(item map[string]any, checkedAt int64) *dashboardv1.DashboardServiceStatus {
-	name := normalizeTraefikServiceName(stringField(item, "name"))
+func traefikServiceStatus(item map[string]any, checkedAt int64, components []string) *dashboardv1.DashboardServiceStatus {
+	name := normalizeTraefikServiceName(stringField(item, "name"), components)
 	status := &dashboardv1.DashboardServiceStatus{
 		Name:          name,
 		Status:        dashboardv1.DashboardServiceStatusState_DASHBOARD_SERVICE_AVAILABLE,
@@ -156,7 +157,7 @@ func mergeDashboardServiceStatus(target map[string]*dashboardv1.DashboardService
 	}
 }
 
-func normalizeTraefikServiceName(name string) string {
+func normalizeTraefikServiceName(name string, components []string) string {
 	name = strings.TrimSpace(name)
 	if before, _, ok := strings.Cut(name, "@"); ok {
 		name = before
@@ -167,12 +168,12 @@ func normalizeTraefikServiceName(name string) string {
 	if slash := strings.LastIndex(name, "/"); slash >= 0 && slash+1 < len(name) {
 		name = name[slash+1:]
 	}
-	return stableDashboardServiceName(name)
+	return stableDashboardServiceName(name, components)
 }
 
-func stableDashboardServiceName(name string) string {
+func stableDashboardServiceName(name string, components []string) string {
 	name = strings.TrimSpace(name)
-	for _, component := range dashboardServiceComponents() {
+	for _, component := range components {
 		if name == component || strings.Contains(name, component) {
 			return component
 		}
@@ -180,19 +181,27 @@ func stableDashboardServiceName(name string) string {
 	return strings.TrimPrefix(name, "byte-v-forge-")
 }
 
-func dashboardServiceComponents() []string {
-	return []string{
-		"browser-automation",
-		"proxy-runtime-protocol",
-		"proxy-runtime",
-		"workflow-runtime",
-		"gpt-service",
-		"sms-service",
-		"n8n-webhook",
-		"n8n-main",
-		"mailbox",
-		"webui",
+func normalizedServiceComponents(names []string) []string {
+	seen := map[string]struct{}{}
+	components := make([]string, 0, len(names))
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		components = append(components, name)
 	}
+	sort.Slice(components, func(i, j int) bool {
+		if len(components[i]) != len(components[j]) {
+			return len(components[i]) > len(components[j])
+		}
+		return components[i] < components[j]
+	})
+	return components
 }
 
 func errorMessages(item map[string]any) []string {
