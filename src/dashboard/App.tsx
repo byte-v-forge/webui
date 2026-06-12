@@ -64,10 +64,17 @@ export default function App() {
 
   useEffect(() => {
     if (navItems.length === 0) return;
-    const selected = viewFromPath(location.pathname, navItems) || navItems[0];
-    if (!activeView || !navItems.some((item) => item.key === activeView)) setActiveView(selected.key);
-    if (!viewFromPath(location.pathname, navItems)) history.replaceState(null, '', pathForView(selected));
-  }, [activeView, navItems]);
+    const selected = viewFromPath(location.pathname, navItems);
+    if (selected) {
+      if (activeView !== selected.key) setActiveView(selected.key);
+      return;
+    }
+    if (modulesQuery.isLoading) return;
+
+    const fallback = navItems[0];
+    if (!activeView || !navItems.some((item) => item.key === activeView)) setActiveView(fallback.key);
+    history.replaceState(null, '', pathForView(fallback));
+  }, [activeView, modulesQuery.isLoading, navItems]);
 
   useEffect(() => {
     const onPopState = () => {

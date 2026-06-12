@@ -35,8 +35,11 @@ export function DashboardHome({ externalApps, serviceStatus }: { externalApps: D
 }
 
 function ExternalAppCard({ app, serviceStatus }: { app: DashboardExternalApp; serviceStatus: ServiceStatusMap }) {
-  const status = app.requiredServices.map((service) => serviceStatus[service]?.status).filter(Boolean);
-  const disabled = status.length > 0 && status.some((value) => value !== DashboardServiceStatusState.DASHBOARD_SERVICE_AVAILABLE);
+  const hasStatus = Object.keys(serviceStatus).length > 0;
+  const disabled = app.requiredServices.some((service) => {
+    const status = serviceStatus[service]?.status;
+    return hasStatus && (!status || status !== DashboardServiceStatusState.DASHBOARD_SERVICE_AVAILABLE);
+  });
   return (
     <Card className="min-h-40">
       <CardHeader>
@@ -48,12 +51,19 @@ function ExternalAppCard({ app, serviceStatus }: { app: DashboardExternalApp; se
       </CardHeader>
       <CardContent className="flex items-center justify-between gap-3">
         <ServiceBadge disabled={disabled} />
-        <Button asChild size="sm" variant="outline" aria-label={`打开${app.label}`}>
-          <a href={app.href} target="_blank" rel="noreferrer">
+        {disabled ? (
+          <Button size="sm" variant="outline" aria-label={`${app.label}服务不可用`} disabled>
             <ExternalLink className="size-4" />
-            <span>打开</span>
-          </a>
-        </Button>
+            <span>不可用</span>
+          </Button>
+        ) : (
+          <Button asChild size="sm" variant="outline" aria-label={`打开${app.label}`}>
+            <a href={app.href} target="_blank" rel="noreferrer">
+              <ExternalLink className="size-4" />
+              <span>打开</span>
+            </a>
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
