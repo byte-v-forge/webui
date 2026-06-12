@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "byte-v-forge-webui",
+  "account_id": "086afdb3c453b4d2a9e14cdd8d8c2861",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-06-11",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/api/*",
+      "/health",
+      "/healthz"
+    ]
+  }
+}
